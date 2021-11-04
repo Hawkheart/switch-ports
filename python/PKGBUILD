@@ -1,0 +1,58 @@
+# Maintainer: Aidan Noll <aidan.noll@gmail.com>
+
+pkgname=switch-python
+pkgver=3.10.0
+pkgrel=1
+pkgdesc="Next generation of the python high-level scripting language"
+arch=('any')
+license=('custom')
+options=(!strip libtool staticlibs)
+source=(
+    "cpython::git+https://github.com/python/cpython#tag=v${pkgver}"
+    "cpython-switch.patch"
+    "config.site"
+)
+sha512sums=('SKIP' 'SKIP' 'SKIP')
+makedepends=('switch-pkg-config' 'dkp-toolchain-vars')
+groups=('switch-portlibs')
+
+prepare() {
+    cd cpython
+
+    git am ${srcdir}/cpython-switch.patch
+}
+
+build() {
+    cd cpython
+
+    source "${DEVKITPRO}/switchvars.sh"
+
+    ./configure \
+	    --prefix="${PORTLIBS_PREFIX}" \
+	    --disable-shared \
+	    --disable-ipv6 \
+	    --disable-test-modules \
+	    --with-ensurepip=no \
+	    --host=aarch64-none-elf \
+	    --build=x86_64-pc-linux-gnu \
+	    CONFIG_SITE=${srcdir}/config.site 
+
+    sed -E -i "s/#define HAVE_(FDATASYNC|FCHDIR|SYMLINK|CHROOT|SETGROUPS) 1/\/* #undef HAVE_\1 *\//" pyconfig.h 
+
+    LDFLAGS="-specs=${DEVKITPRO}/libnx/switch.specs ${LDFLAGS}"
+
+    make
+}
+
+package() {
+    cd cpython
+
+    source "${DEVKITPRO}/switchvars.sh"
+
+    make altinstall DESTDIR="${pkgdir}"
+
+    rm -rf "${pkgdir}/${PORTLIBS_PREFIX}/bin"
+
+    # License
+    install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}

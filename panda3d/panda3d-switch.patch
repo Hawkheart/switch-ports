@@ -1,0 +1,2257 @@
+From 2693d46552d2e5a7d32cd01220ad690a94908b35 Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Sat, 23 Oct 2021 04:15:37 -0400
+Subject: [PATCH 1/8] framework: support gles2 in static link scenarios
+
+---
+ panda/src/framework/CMakeLists.txt | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/panda/src/framework/CMakeLists.txt b/panda/src/framework/CMakeLists.txt
+index d299c86bd1..0fc5ecaf2d 100644
+--- a/panda/src/framework/CMakeLists.txt
++++ b/panda/src/framework/CMakeLists.txt
+@@ -17,6 +17,10 @@ if(NOT BUILD_SHARED_LIBS)
+   # at least one of the available renderers.
+   if(HAVE_GL)
+     list(APPEND P3FRAMEWORK_LINK_TARGETS pandagl)
++  elseif(HAVE_GLES2)
++    list(APPEND P3FRAMEWORK_LINK_TARGETS pandagles2)
++  elseif(HAVE_GLES1)
++    list(APPEND P3FRAMEWORK_LINK_TARGETS pandagles)
+   elseif(HAVE_DX9)
+     list(APPEND P3FRAMEWORK_LINK_TARGETS pandadx9)
+   elseif(HAVE_TINYDISPLAY)
+-- 
+2.25.1
+
+
+From 10b2f7e42d0cde9c610874b8e6d334f8c8e61517 Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Sat, 23 Oct 2021 04:35:14 -0400
+Subject: [PATCH 2/8] egldisplay: fix cmakelists
+
+---
+ panda/src/egldisplay/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/panda/src/egldisplay/CMakeLists.txt b/panda/src/egldisplay/CMakeLists.txt
+index 07fb40a9c0..3204d7f3a3 100644
+--- a/panda/src/egldisplay/CMakeLists.txt
++++ b/panda/src/egldisplay/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-if(NOT HAVE_EGL OR NOT HAVE_X11)
++if(NOT HAVE_EGL AND NOT HAVE_X11)
+   return()
+ endif()
+ 
+-- 
+2.25.1
+
+
+From 13e0d2953d3a8135d7aadda726d083998167bd12 Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Sat, 23 Oct 2021 04:38:08 -0400
+Subject: [PATCH 3/8] glstuff: fix cmake building with GLES
+
+---
+ panda/src/glstuff/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/panda/src/glstuff/CMakeLists.txt b/panda/src/glstuff/CMakeLists.txt
+index 016dafa81a..0b7a6112df 100644
+--- a/panda/src/glstuff/CMakeLists.txt
++++ b/panda/src/glstuff/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-if(NOT HAVE_GL)
++if(NOT HAVE_GL AND NOT HAVE_GLES1 AND NOT HAVE_GLES2)
+   return()
+ endif()
+ 
+-- 
+2.25.1
+
+
+From 3a18523d123da3a7a83896b4c700efa5c2fb03b8 Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Sat, 23 Oct 2021 04:40:20 -0400
+Subject: [PATCH 4/8] metalibs: hack out x11
+
+---
+ panda/metalibs/pandagles/CMakeLists.txt  | 2 +-
+ panda/metalibs/pandagles2/CMakeLists.txt | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/panda/metalibs/pandagles/CMakeLists.txt b/panda/metalibs/pandagles/CMakeLists.txt
+index 10d5932a63..aba1cc96cd 100644
+--- a/panda/metalibs/pandagles/CMakeLists.txt
++++ b/panda/metalibs/pandagles/CMakeLists.txt
+@@ -17,7 +17,7 @@ add_metalib(pandagles ${MODULE_TYPE}
+   INCLUDE "${GLES1_PIPE_INCLUDE}"
+   INIT init_libpandagles pandagles.h
+   EXPORT int get_pipe_type_pandagles "${GLES1_PIPE_TYPE}::get_class_type().get_index()"
+-  COMPONENTS p3egldisplay_gles1 p3glesgsg p3glstuff p3x11display)
++  COMPONENTS p3egldisplay_gles1 p3glesgsg p3glstuff)
+ unset(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME)
+ 
+ if(HAVE_X11)
+diff --git a/panda/metalibs/pandagles2/CMakeLists.txt b/panda/metalibs/pandagles2/CMakeLists.txt
+index cfe4a1735d..10a172e70f 100644
+--- a/panda/metalibs/pandagles2/CMakeLists.txt
++++ b/panda/metalibs/pandagles2/CMakeLists.txt
+@@ -7,7 +7,7 @@ add_metalib(pandagles2 ${MODULE_TYPE}
+   INCLUDE eglGraphicsPipe.h
+   INIT init_libpandagles2 pandagles2.h
+   EXPORT int get_pipe_type_pandagles2 "eglGraphicsPipe::get_class_type().get_index()"
+-  COMPONENTS p3egldisplay_gles2 p3gles2gsg p3glstuff p3x11display)
++  COMPONENTS p3egldisplay_gles2 p3gles2gsg p3glstuff)
+ unset(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME)
+ 
+ if(HAVE_X11)
+-- 
+2.25.1
+
+
+From 03fa13b35f91f9eaf3884fff2a64d29e0f7f8f1e Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Sat, 23 Oct 2021 04:42:57 -0400
+Subject: [PATCH 5/8] hack
+
+---
+ dtool/src/dtoolbase/memoryHook.cxx            |  9 +-
+ dtool/src/dtoolutil/CMakeLists.txt            |  2 +-
+ dtool/src/dtoolutil/executionEnvironment.cxx  |  2 +
+ dtool/src/dtoolutil/filename.cxx              | 85 ++++++++++++++++++-
+ dtool/src/dtoolutil/load_dso.cxx              | 21 +++++
+ dtool/src/dtoolutil/pfstreamBuf.cxx           |  5 ++
+ dtool/src/prc/configPageManager.cxx           |  6 ++
+ .../egldisplay/eglGraphicsStateGuardian.cxx   |  2 -
+ panda/src/gobj/vertexDataSaveFile.cxx         |  2 +
+ panda/src/nativenet/socket_portable.h         |  2 +-
+ 10 files changed, 130 insertions(+), 6 deletions(-)
+
+diff --git a/dtool/src/dtoolbase/memoryHook.cxx b/dtool/src/dtoolbase/memoryHook.cxx
+index 4abc0661d8..8170727cf3 100644
+--- a/dtool/src/dtoolbase/memoryHook.cxx
++++ b/dtool/src/dtoolbase/memoryHook.cxx
+@@ -29,7 +29,6 @@
+ // Posix case.
+ #include <unistd.h>
+ #include <sys/types.h>
+-#include <sys/mman.h>
+ 
+ #ifndef MAP_ANON
+ #define MAP_ANON 0x1000
+@@ -199,6 +198,10 @@ MemoryHook() {
+ 
+   _page_size = (size_t)sysinfo.dwPageSize;
+ 
++#elif defined(__SWITCH__)
++
++  // Switch case.
++  _page_size = 0x1000;
+ #else
+ 
+   // Posix case.
+@@ -540,6 +543,8 @@ mmap_alloc(size_t size, bool allow_exec) {
+ 
+   return ptr;
+ 
++#elif defined(__SWITCH__)
++  return malloc(size);
+ #else
+ 
+   // Posix case.
+@@ -573,6 +578,8 @@ mmap_free(void *ptr, size_t size) {
+ 
+ #ifdef _WIN32
+   VirtualFree(ptr, 0, MEM_RELEASE);
++#elif defined(__SWITCH__)
++  free(ptr);
+ #else
+   munmap(ptr, size);
+ #endif
+diff --git a/dtool/src/dtoolutil/CMakeLists.txt b/dtool/src/dtoolutil/CMakeLists.txt
+index 73beacff6c..22135e8682 100644
+--- a/dtool/src/dtoolutil/CMakeLists.txt
++++ b/dtool/src/dtoolutil/CMakeLists.txt
+@@ -75,7 +75,7 @@ set(P3DTOOLUTIL_IGATEEXT
+ composite_sources(p3dtoolutil P3DTOOLUTIL_SOURCES)
+ add_component_library(p3dtoolutil SYMBOL BUILDING_DTOOL_DTOOLUTIL
+   ${P3DTOOLUTIL_HEADERS} ${P3DTOOLUTIL_SOURCES})
+-target_link_libraries(p3dtoolutil p3dtoolbase ${CMAKE_DL_LIBS})
++target_link_libraries(p3dtoolutil p3dtoolbase)
+ target_interrogate(p3dtoolutil ALL EXTENSIONS ${P3DTOOLUTIL_IGATEEXT})
+ 
+ if(APPLE)
+diff --git a/dtool/src/dtoolutil/executionEnvironment.cxx b/dtool/src/dtoolutil/executionEnvironment.cxx
+index 4214505faf..4dd047274f 100644
+--- a/dtool/src/dtoolutil/executionEnvironment.cxx
++++ b/dtool/src/dtoolutil/executionEnvironment.cxx
+@@ -886,6 +886,7 @@ read_args() {
+   }
+ #endif
+ 
++#ifndef __SWITCH__
+ #ifndef _WIN32
+   // Try to use realpath to get cleaner paths.
+ 
+@@ -903,6 +904,7 @@ read_args() {
+     }
+   }
+ #endif  // _WIN32
++#endif  // __SWITCH__
+ 
+   if (_dtool_name.empty()) {
+     _dtool_name = _binary_name;
+diff --git a/dtool/src/dtoolutil/filename.cxx b/dtool/src/dtoolutil/filename.cxx
+index 0998a8f7a5..9c2d1b4bb9 100644
+--- a/dtool/src/dtoolutil/filename.cxx
++++ b/dtool/src/dtoolutil/filename.cxx
+@@ -1022,6 +1022,7 @@ make_canonical() {
+   }
+ 
+ #ifndef _WIN32
++#ifndef __SWITCH__
+   // Use realpath in order to resolve symlinks properly
+   char newpath [PATH_MAX + 1];
+   if (realpath(c_str(), newpath) != nullptr) {
+@@ -1029,6 +1030,7 @@ make_canonical() {
+     newpath_fn._flags = _flags;
+     (*this) = newpath_fn;
+   }
++#endif
+ #endif
+ 
+   Filename cwd = ExecutionEnvironment::get_cwd();
+@@ -2292,7 +2294,7 @@ touch() const {
+   // time.  For these systems, we'll just temporarily open the file in append
+   // mode, then close it again (it gets closed when the pfstream goes out of
+   // scope).
+-  pfstream file;
++  pofstream file;
+   return open_append(file);
+ #endif  // _WIN32, PHAVE_UTIME_H
+ }
+@@ -2709,7 +2711,57 @@ atomic_compare_and_exchange_contents(string &orig_contents,
+ 
+   CloseHandle(hfile);
+   return match;
++#elif defined(__SWITCH__)
++  // Switch doesn't support file locking at the OS level, but
++  // given that there's no multitasking, we don't need to worry
++  // about other processes messing with the file.
++
++  string os_specific = to_os_specific();
++
++  FILE *fp = fopen(os_specific.c_str(), "a+b");
++
++  if (fp == nullptr) {
++    perror(os_specific.c_str());
++    return false;
++  }
+ 
++  static const size_t buf_size = 512;
++  char buf[buf_size];
++
++  orig_contents = string();
++
++  size_t bytes_read = fread(buf, 1, buf_size, fp);
++
++  while (bytes_read > 0) {
++    orig_contents += string(buf, bytes_read);
++
++    bytes_read = fread(buf, 1, buf_size, fp);
++  }
++
++  if (bytes_read < 0) {
++    perror(os_specific.c_str());
++    fclose(fp);
++    return false;
++  }
++
++  bool match = false;
++  if (orig_contents == old_contents) {
++    match = true;
++    fseek(fp, 0, SEEK_SET);
++    size_t bytes_written = fwrite(new_contents.data(), 1, new_contents.size(), fp);
++    if (bytes_written < new_contents.size()) {
++      perror(os_specific.c_str());
++      fclose(fp);
++      return false;
++    }
++  }
++
++  if (fclose(fp) != 0) {
++    perror(os_specific.c_str());
++    return false;
++  }
++
++  return match;
+ #else  // _WIN32
+   string os_specific = to_os_specific();
+   int fd = open(os_specific.c_str(), O_RDWR | O_CREAT, 0666);
+@@ -2825,6 +2877,37 @@ atomic_read_contents(string &contents) const {
+ 
+   CloseHandle(hfile);
+   return true;
++#elif defined(__SWITCH__)
++
++  string os_specific = to_os_specific();
++
++  FILE *fp = fopen(os_specific.c_str(), "a+b");
++
++  if (fp == nullptr) {
++    perror(os_specific.c_str());
++    return false;
++  }
++
++  static const size_t buf_size = 512;
++  char buf[buf_size];
++
++  contents = string();
++
++  size_t bytes_read = fread(buf, 1, buf_size, fp);
++  while (bytes_read > 0) {
++    contents += string(buf, bytes_read);
++
++    bytes_read = fread(buf, 1, buf_size, fp);
++  }
++
++  if (bytes_read < 0) {
++    perror(os_specific.c_str());
++    fclose(fp);
++    return false;
++  }
++
++  fclose(fp);
++  return true;
+ 
+ #else  // _WIN32
+   string os_specific = to_os_specific();
+diff --git a/dtool/src/dtoolutil/load_dso.cxx b/dtool/src/dtoolutil/load_dso.cxx
+index 95650b88c2..28bfc5732d 100644
+--- a/dtool/src/dtoolutil/load_dso.cxx
++++ b/dtool/src/dtoolutil/load_dso.cxx
+@@ -107,6 +107,27 @@ get_dso_symbol(void *handle, const string &name) {
+ 
+ /* end Win32-specific code */
+ 
++#elif defined(__SWITCH__)
++void *
++load_dso(const DSearchPath &path, const Filename &filename) {
++	return nullptr;
++}
++
++bool
++unload_dso(void *dso_handle) {
++	return true;
++}
++
++string
++load_dso_error() {
++  return "Not supported.";
++}
++
++void *
++get_dso_symbol(void *handle, const string &name) {
++  return nullptr;
++}
++
+ #else
+ /* begin Posix code */
+ 
+diff --git a/dtool/src/dtoolutil/pfstreamBuf.cxx b/dtool/src/dtoolutil/pfstreamBuf.cxx
+index a5585ee3cd..1bf5265e81 100644
+--- a/dtool/src/dtoolutil/pfstreamBuf.cxx
++++ b/dtool/src/dtoolutil/pfstreamBuf.cxx
+@@ -195,9 +195,14 @@ eof_pipe() const {
+  */
+ bool PipeStreamBuf::
+ open_pipe(const string &cmd) {
++#ifdef __SWITCH__
++  // Switch has no popen() function.
++  return false;
++#else
+   const char *typ = (_dir == Output)?"w":"r";
+   _pipe = popen(cmd.c_str(), typ);
+   return (_pipe != nullptr);
++#endif // __SWITCH__
+ }
+ 
+ /**
+diff --git a/dtool/src/prc/configPageManager.cxx b/dtool/src/prc/configPageManager.cxx
+index c6672deddf..68934bb459 100644
+--- a/dtool/src/prc/configPageManager.cxx
++++ b/dtool/src/prc/configPageManager.cxx
+@@ -38,9 +38,11 @@
+ #include <algorithm>
+ #include <ctype.h>
+ 
++#ifndef __SWITCH__
+ #ifndef _WIN32
+ #include <dlfcn.h>
+ #endif
++#endif
+ 
+ using std::string;
+ 
+@@ -122,6 +124,8 @@ reload_implicit_pages() {
+   };
+ #ifdef _WIN32
+   const BlobInfo *blobinfo = (const BlobInfo *)GetProcAddress(GetModuleHandle(NULL), "blobinfo");
++#elif defined(__SWITCH__)
++  const BlobInfo *blobinfo = nullptr;
+ #elif defined(RTLD_MAIN_ONLY)
+   const BlobInfo *blobinfo = (const BlobInfo *)dlsym(RTLD_MAIN_ONLY, "blobinfo");
+ //#elif defined(RTLD_SELF)
+@@ -132,7 +136,9 @@ reload_implicit_pages() {
+   if (blobinfo == nullptr) {
+ #ifndef _WIN32
+     // Clear the error flag.
++#ifndef __SWITCH__
+     dlerror();
++#endif
+ #endif
+   } else if (blobinfo->version == 0 || blobinfo->num_pointers < 10) {
+     blobinfo = nullptr;
+diff --git a/panda/src/egldisplay/eglGraphicsStateGuardian.cxx b/panda/src/egldisplay/eglGraphicsStateGuardian.cxx
+index 70924505ad..b8e6150654 100644
+--- a/panda/src/egldisplay/eglGraphicsStateGuardian.cxx
++++ b/panda/src/egldisplay/eglGraphicsStateGuardian.cxx
+@@ -15,8 +15,6 @@
+ #include "config_egldisplay.h"
+ #include "lightReMutexHolder.h"
+ 
+-#include <dlfcn.h>
+-
+ TypeHandle eglGraphicsStateGuardian::_type_handle;
+ 
+ /**
+diff --git a/panda/src/gobj/vertexDataSaveFile.cxx b/panda/src/gobj/vertexDataSaveFile.cxx
+index 1cc96719c7..a1444623f2 100644
+--- a/panda/src/gobj/vertexDataSaveFile.cxx
++++ b/panda/src/gobj/vertexDataSaveFile.cxx
+@@ -135,6 +135,8 @@ VertexDataSaveFile(const Filename &directory, const std::string &prefix,
+     // simultaneously writing to the same save file.
+ #ifdef PHAVE_LOCKF
+     int result = lockf(_fd, F_TLOCK, 0);
++#elif defined(__SWITCH__)
++    int result = 0;
+ #else
+     int result = flock(_fd, LOCK_EX | LOCK_NB);
+ #endif
+diff --git a/panda/src/nativenet/socket_portable.h b/panda/src/nativenet/socket_portable.h
+index 4000495fe3..69a2f8225d 100644
+--- a/panda/src/nativenet/socket_portable.h
++++ b/panda/src/nativenet/socket_portable.h
+@@ -183,7 +183,7 @@ const int LOCAL_CONNECT_BLOCKING = EINPROGRESS;
+ * LINUX and FreeBSD STUFF
+ ************************************************************************/
+ 
+-#elif defined(IS_LINUX) || defined(IS_OSX) || defined(IS_FREEBSD)
++#elif defined(IS_LINUX) || defined(IS_OSX) || defined(IS_FREEBSD) || defined(__SWITCH__)
+ 
+ #include <sys/types.h>
+ #include <sys/time.h>
+-- 
+2.25.1
+
+
+From 9c886f6af4f11ba734aa3b3d7fbe3761c81610ad Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Sat, 23 Oct 2021 20:47:42 -0400
+Subject: [PATCH 6/8] switchdisplay: implementation of display for Switch
+
+---
+ panda/CMakeLists.txt                          |   1 +
+ panda/metalibs/pandagles/CMakeLists.txt       |  10 +-
+ panda/metalibs/pandagles/pandagles.cxx        |   4 +
+ panda/metalibs/pandagles2/CMakeLists.txt      |  25 +-
+ panda/src/switchdisplay/CMakeLists.txt        |  66 +++
+ .../switchdisplay/config_switchdisplay.cxx    |  86 ++++
+ .../src/switchdisplay/config_switchdisplay.h  |  42 ++
+ panda/src/switchdisplay/libnxWrapper.cxx      |  22 +
+ panda/src/switchdisplay/libnxWrapper.h        |   9 +
+ .../p3switchdisplay_composite1.cxx            |   6 +
+ panda/src/switchdisplay/switchGraphicsPipe.I  |  12 +
+ .../src/switchdisplay/switchGraphicsPipe.cxx  | 213 ++++++++++
+ panda/src/switchdisplay/switchGraphicsPipe.h  |  90 ++++
+ .../switchGraphicsStateGuardian.I             |  21 +
+ .../switchGraphicsStateGuardian.cxx           | 384 ++++++++++++++++++
+ .../switchGraphicsStateGuardian.h             |  95 +++++
+ .../src/switchdisplay/switchGraphicsWindow.I  |  12 +
+ .../switchdisplay/switchGraphicsWindow.cxx    | 339 ++++++++++++++++
+ .../src/switchdisplay/switchGraphicsWindow.h  |  79 ++++
+ 19 files changed, 1512 insertions(+), 4 deletions(-)
+ create mode 100644 panda/src/switchdisplay/CMakeLists.txt
+ create mode 100644 panda/src/switchdisplay/config_switchdisplay.cxx
+ create mode 100644 panda/src/switchdisplay/config_switchdisplay.h
+ create mode 100644 panda/src/switchdisplay/libnxWrapper.cxx
+ create mode 100644 panda/src/switchdisplay/libnxWrapper.h
+ create mode 100644 panda/src/switchdisplay/p3switchdisplay_composite1.cxx
+ create mode 100644 panda/src/switchdisplay/switchGraphicsPipe.I
+ create mode 100644 panda/src/switchdisplay/switchGraphicsPipe.cxx
+ create mode 100644 panda/src/switchdisplay/switchGraphicsPipe.h
+ create mode 100644 panda/src/switchdisplay/switchGraphicsStateGuardian.I
+ create mode 100644 panda/src/switchdisplay/switchGraphicsStateGuardian.cxx
+ create mode 100644 panda/src/switchdisplay/switchGraphicsStateGuardian.h
+ create mode 100644 panda/src/switchdisplay/switchGraphicsWindow.I
+ create mode 100644 panda/src/switchdisplay/switchGraphicsWindow.cxx
+ create mode 100644 panda/src/switchdisplay/switchGraphicsWindow.h
+
+diff --git a/panda/CMakeLists.txt b/panda/CMakeLists.txt
+index 83a796c82d..2722a305a1 100644
+--- a/panda/CMakeLists.txt
++++ b/panda/CMakeLists.txt
+@@ -51,6 +51,7 @@ add_subdirectory(src/pnmtext)
+ add_subdirectory(src/pstatclient)
+ add_subdirectory(src/putil)
+ add_subdirectory(src/recorder)
++add_subdirectory(src/switchdisplay)
+ add_subdirectory(src/testbed)
+ add_subdirectory(src/text)
+ add_subdirectory(src/tform)
+diff --git a/panda/metalibs/pandagles/CMakeLists.txt b/panda/metalibs/pandagles/CMakeLists.txt
+index aba1cc96cd..d3967f630e 100644
+--- a/panda/metalibs/pandagles/CMakeLists.txt
++++ b/panda/metalibs/pandagles/CMakeLists.txt
+@@ -2,13 +2,21 @@ if(NOT HAVE_GLES1 OR NOT HAVE_EGL)
+   return()
+ endif()
+ 
++set(PANDAGLES_LINK_TARGETS p3glesgsg p3glstuff)
++
+ if(ANDROID)
+   set(GLES1_PIPE_TYPE "AndroidGraphicsPipe")
+   set(GLES1_PIPE_INCLUDE "androidGraphicsPipe.h")
+ 
++elseif(SWITCH)
++  set(GLES1_PIPE_TYPE "SwitchGraphicsPipe")
++  set(GLES1_PIPE_INCLUDE "switchGraphicsPipe.h")
++  list(APPEND PANDAGLES_LINK_TARGETS p3switchdisplay_gles1)
++
+ else()
+   set(GLES1_PIPE_TYPE "eglGraphicsPipe")
+   set(GLES1_PIPE_INCLUDE "eglGraphicsPipe.h")
++  list(APPEND PANDAGLES_LINK_TARGETS p3egldisplay_gles1)
+ 
+ endif()
+ 
+@@ -17,7 +25,7 @@ add_metalib(pandagles ${MODULE_TYPE}
+   INCLUDE "${GLES1_PIPE_INCLUDE}"
+   INIT init_libpandagles pandagles.h
+   EXPORT int get_pipe_type_pandagles "${GLES1_PIPE_TYPE}::get_class_type().get_index()"
+-  COMPONENTS p3egldisplay_gles1 p3glesgsg p3glstuff)
++  COMPONENTS ${PANDAGLES_LINK_TARGETS})
+ unset(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME)
+ 
+ if(HAVE_X11)
+diff --git a/panda/metalibs/pandagles/pandagles.cxx b/panda/metalibs/pandagles/pandagles.cxx
+index f2ed5f3e1a..8873b2eb4e 100644
+--- a/panda/metalibs/pandagles/pandagles.cxx
++++ b/panda/metalibs/pandagles/pandagles.cxx
+@@ -29,6 +29,8 @@ init_libpandagles() {
+ 
+ #if defined(ANDROID)
+   init_libandroiddisplay();
++#elif defined(__SWITCH__)
++  init_libswitchdisplay();
+ #else
+   init_libegldisplay();
+ #endif
+@@ -42,6 +44,8 @@ int
+ get_pipe_type_pandagles() {
+ #if defined(ANDROID)
+   return AndroidGraphicsPipe::get_class_type().get_index();
++#elif defined(__SWITCH__)
++  return SwitchGraphicsPipe::get_class_type().get_index();
+ #else
+   return eglGraphicsPipe::get_class_type().get_index();
+ #endif
+diff --git a/panda/metalibs/pandagles2/CMakeLists.txt b/panda/metalibs/pandagles2/CMakeLists.txt
+index 10a172e70f..e1d9370cf1 100644
+--- a/panda/metalibs/pandagles2/CMakeLists.txt
++++ b/panda/metalibs/pandagles2/CMakeLists.txt
+@@ -2,12 +2,31 @@ if(NOT HAVE_GLES2 OR NOT HAVE_EGL)
+   return()
+ endif()
+ 
++set(PANDAGLES2_LINK_TARGETS p3gles2gsg p3glstuff)
++
++if(ANDROID)
++  set(GLES2_PIPE_TYPE "AndroidGraphicsPipe")
++  set(GLES2_PIPE_INCLUDE "androidGraphicsPipe.h")
++
++elseif(SWITCH)
++  set(GLES2_PIPE_TYPE "SwitchGraphicsPipe")
++  set(GLES2_PIPE_INCLUDE "switchGraphicsPipe.h")
++  list(APPEND PANDAGLES2_LINK_TARGETS p3switchdisplay_gles2)
++
++else()
++  set(GLES2_PIPE_TYPE "eglGraphicsPipe")
++  set(GLES2_PIPE_INCLUDE "eglGraphicsPipe.h")
++  list(APPEND PANDAGLES2_LINK_TARGETS p3egldisplay_gles2)
++
++endif()
++
++
+ set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME "OpenGLES2Devel")
+ add_metalib(pandagles2 ${MODULE_TYPE}
+-  INCLUDE eglGraphicsPipe.h
++  INCLUDE ${GLES2_PIPE_INCLUDE}
+   INIT init_libpandagles2 pandagles2.h
+-  EXPORT int get_pipe_type_pandagles2 "eglGraphicsPipe::get_class_type().get_index()"
+-  COMPONENTS p3egldisplay_gles2 p3gles2gsg p3glstuff)
++  EXPORT int get_pipe_type_pandagles2 "${GLES2_PIPE_TYPE}::get_class_type().get_index()"
++  COMPONENTS ${PANDAGLES2_LINK_TARGETS})
+ unset(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME)
+ 
+ if(HAVE_X11)
+diff --git a/panda/src/switchdisplay/CMakeLists.txt b/panda/src/switchdisplay/CMakeLists.txt
+new file mode 100644
+index 0000000000..e28a5bbcfc
+--- /dev/null
++++ b/panda/src/switchdisplay/CMakeLists.txt
+@@ -0,0 +1,66 @@
++if(NOT SWITCH)
++  return()
++endif()
++
++if(NOT HAVE_GLES1 AND NOT HAVE_GLES2)
++  return()
++endif()
++
++set(P3SWITCHDISPLAY_HEADERS
++  config_switchdisplay.h
++  switchGraphicsPipe.h switchGraphicsPipe.I
++  switchGraphicsStateGuardian.h switchGraphicsStateGuardian.I
++  switchGraphicsWindow.h switchGraphicsWindow.I
++  libnxWrapper.h
++)
++
++set(P3SWITCHDISPLAY_SOURCES
++  config_switchdisplay.cxx
++  switchGraphicsPipe.cxx
++  switchGraphicsStateGuardian.cxx
++  switchGraphicsWindow.cxx
++  libnxWrapper.cxx
++)
++
++composite_sources(p3switchdisplay P3SWITCHDISPLAY_SOURCES)
++
++# We actually build this twice!  Once for GLES1, once for GLES2.
++if(HAVE_GLES1)
++  add_component_library(p3switchdisplay_gles1 SYMBOL BUILDING_PANDAGLES
++    INIT init_libswitchdisplay config_switchdisplay.h
++    ${P3SWITCHDISPLAY_HEADERS} ${P3SWITCHDISPLAY_SOURCES})
++  target_compile_definitions(p3switchdisplay_gles1 PUBLIC OPENGLES_1)
++  target_link_libraries(p3switchdisplay_gles1 p3glesgsg p3x11display
++    PKG::EGL PKG::GLES1)
++
++  if(NOT BUILD_METALIBS)
++    install(TARGETS p3switchdisplay_gles1
++      EXPORT OpenGLES1 COMPONENT OpenGLES1
++      DESTINATION ${CMAKE_INSTALL_LIBDIR}
++      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
++      INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/panda3d
++      ARCHIVE COMPONENT OpenGLES1Devel)
++  endif()
++
++  install(FILES ${P3SWITCHDISPLAY_HEADERS} COMPONENT OpenGLES1Devel DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/panda3d)
++endif()
++
++if(HAVE_GLES2)
++  add_component_library(p3switchdisplay_gles2 SYMBOL BUILDING_PANDAGLES2
++    INIT init_libswitchdisplay config_switchdisplay.h
++    ${P3SWITCHDISPLAY_HEADERS} ${P3SWITCHDISPLAY_SOURCES})
++  target_compile_definitions(p3switchdisplay_gles2 PUBLIC OPENGLES_2)
++  target_link_libraries(p3switchdisplay_gles2 p3gles2gsg p3x11display
++    PKG::EGL PKG::GLES2)
++
++  if(NOT BUILD_METALIBS)
++    install(TARGETS p3switchdisplay_gles2
++      EXPORT OpenGLES2 COMPONENT OpenGLES2
++      DESTINATION ${CMAKE_INSTALL_LIBDIR}
++      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
++      INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/panda3d
++      ARCHIVE COMPONENT OpenGLES2Devel)
++  endif()
++
++  install(FILES ${P3SWITCHDISPLAY_HEADERS} COMPONENT OpenGLES2Devel DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/panda3d)
++endif()
+diff --git a/panda/src/switchdisplay/config_switchdisplay.cxx b/panda/src/switchdisplay/config_switchdisplay.cxx
+new file mode 100644
+index 0000000000..5b90877a20
+--- /dev/null
++++ b/panda/src/switchdisplay/config_switchdisplay.cxx
+@@ -0,0 +1,86 @@
++/**
++ * PANDA 3D SOFTWARE
++ * Copyright (c) Carnegie Mellon University.  All rights reserved.
++ *
++ * All use of this software is subject to the terms of the revised BSD
++ * license.  You should have received a copy of this license along
++ * with this source code in a file named "LICENSE."
++ *
++ * @file config_switchdisplay.cxx
++ * @author rdb
++ * @date 2013-01-11
++ */
++
++#include "config_switchdisplay.h"
++#include "switchGraphicsPipe.h"
++#include "switchGraphicsWindow.h"
++#include "switchGraphicsStateGuardian.h"
++#include "graphicsPipeSelection.h"
++#include "dconfig.h"
++#include "pandaSystem.h"
++
++#include "config_display.h"
++
++Configure(config_switchdisplay);
++NotifyCategoryDef(switchdisplay, "display");
++
++ConfigureFn(config_switchdisplay) {
++  init_libswitchdisplay();
++}
++
++/**
++ * Initializes the library.  This must be called at least once before any of
++ * the functions or classes in this library can be used.  Normally it will be
++ * called by the static initializers and need not be called explicitly, but
++ * special cases exist.
++ */
++void
++init_libswitchdisplay() {
++  static bool initialized = false;
++  if (initialized) {
++    return;
++  }
++  initialized = true;
++
++  init_libdisplay();
++  display_cat.get_safe_ptr();
++
++  SwitchGraphicsPipe::init_type();
++  SwitchGraphicsWindow::init_type();
++  SwitchGraphicsStateGuardian::init_type();
++
++  GraphicsPipeSelection *selection = GraphicsPipeSelection::get_global_ptr();
++  selection->add_pipe_type(SwitchGraphicsPipe::get_class_type(),
++                           SwitchGraphicsPipe::pipe_constructor);
++
++  PandaSystem *ps = PandaSystem::get_global_ptr();
++#ifdef OPENGLES_2
++  ps->set_system_tag("OpenGL ES 2", "window_system", "Switch");
++#else
++  ps->set_system_tag("OpenGL ES", "window_system", "Switch");
++#endif
++}
++
++/**
++ * Returns the given EGL error as string.
++ */
++const std::string get_egl_error_string(int error) {
++  switch (error) {
++    case 0x3000: return "EGL_SUCCESS"; break;
++    case 0x3001: return "EGL_NOT_INITIALIZED"; break;
++    case 0x3002: return "EGL_BAD_ACCESS"; break;
++    case 0x3003: return "EGL_BAD_ALLOC"; break;
++    case 0x3004: return "EGL_BAD_ATTRIBUTE"; break;
++    case 0x3005: return "EGL_BAD_CONFIG"; break;
++    case 0x3006: return "EGL_BAD_CONTEXT"; break;
++    case 0x3007: return "EGL_BAD_CURRENT_SURFACE"; break;
++    case 0x3008: return "EGL_BAD_DISPLAY"; break;
++    case 0x3009: return "EGL_BAD_MATCH"; break;
++    case 0x300A: return "EGL_BAD_NATIVE_PIXMAP"; break;
++    case 0x300B: return "EGL_BAD_NATIVE_WINDOW"; break;
++    case 0x300C: return "EGL_BAD_PARAMETER"; break;
++    case 0x300D: return "EGL_BAD_SURFACE"; break;
++    case 0x300E: return "EGL_CONTEXT_LOST"; break;
++    default: return "Unknown error";
++  }
++}
+diff --git a/panda/src/switchdisplay/config_switchdisplay.h b/panda/src/switchdisplay/config_switchdisplay.h
+new file mode 100644
+index 0000000000..d05adb3f04
+--- /dev/null
++++ b/panda/src/switchdisplay/config_switchdisplay.h
+@@ -0,0 +1,42 @@
++/**
++ * PANDA 3D SOFTWARE
++ * Copyright (c) Carnegie Mellon University.  All rights reserved.
++ *
++ * All use of this software is subject to the terms of the revised BSD
++ * license.  You should have received a copy of this license along
++ * with this source code in a file named "LICENSE."
++ *
++ * @file config_switchdisplay.h
++ * @author rdb
++ * @date 2013-01-11
++ */
++
++#ifndef CONFIG_SWITCHDISPLAY_H
++#define CONFIG_SWITCHDISPLAY_H
++
++#include "pandabase.h"
++#include "notifyCategoryProxy.h"
++#include "configVariableString.h"
++#include "configVariableBool.h"
++#include "configVariableInt.h"
++
++#if defined(OPENGLES_1) && defined(OPENGLES_2)
++  #error OPENGLES_1 and OPENGLES_2 cannot be defined at the same time!
++#endif
++#if !defined(OPENGLES_1) && !defined(OPENGLES_2)
++  #error Either OPENGLES_1 or OPENGLES_2 must be defined when compiling switchdisplay!
++#endif
++
++#ifdef OPENGLES_2
++  NotifyCategoryDecl(switchdisplay, EXPCL_PANDAGLES2, EXPTP_PANDAGLES2);
++
++  extern EXPCL_PANDAGLES2 void init_libswitchdisplay();
++  extern EXPCL_PANDAGLES2 const std::string get_egl_error_string(int error);
++#else
++  NotifyCategoryDecl(switchdisplay, EXPCL_PANDAGLES, EXPTP_PANDAGLES);
++
++  extern EXPCL_PANDAGLES void init_libswitchdisplay();
++  extern EXPCL_PANDAGLES const std::string get_egl_error_string(int error);
++#endif
++
++#endif
+diff --git a/panda/src/switchdisplay/libnxWrapper.cxx b/panda/src/switchdisplay/libnxWrapper.cxx
+new file mode 100644
+index 0000000000..9a82aa1181
+--- /dev/null
++++ b/panda/src/switchdisplay/libnxWrapper.cxx
+@@ -0,0 +1,22 @@
++
++extern "C" {
++#include <switch/types.h>
++#include <switch/services/applet.h>
++#include <switch/display/native_window.h>
++}
++
++NWindow* switch_get_native_window() {
++    return nwindowGetDefault();
++}
++
++bool switch_process_events() {
++   u32 msg = 0;
++   while (!R_FAILED(appletGetMessage(&msg))) {
++       bool result = appletProcessMessage(msg);
++
++       if (!result) {
++           return false;
++       }
++    }
++    return true;
++}
+\ No newline at end of file
+diff --git a/panda/src/switchdisplay/libnxWrapper.h b/panda/src/switchdisplay/libnxWrapper.h
+new file mode 100644
+index 0000000000..9f4e8f9a2b
+--- /dev/null
++++ b/panda/src/switchdisplay/libnxWrapper.h
+@@ -0,0 +1,9 @@
++#ifndef LIBNXWRAPPER_H
++#define LIBNXWRAPPER_H
++
++struct NWindow;
++
++NWindow* switch_get_native_window();
++bool switch_process_events();
++
++#endif /* LIBNXWRAPPER_H */
+\ No newline at end of file
+diff --git a/panda/src/switchdisplay/p3switchdisplay_composite1.cxx b/panda/src/switchdisplay/p3switchdisplay_composite1.cxx
+new file mode 100644
+index 0000000000..86517b1470
+--- /dev/null
++++ b/panda/src/switchdisplay/p3switchdisplay_composite1.cxx
+@@ -0,0 +1,6 @@
++#include "config_switchdisplay.cxx"
++//#include "switchGraphicsBuffer.cxx"
++#include "switchGraphicsPipe.cxx"
++//#include "switchGraphicsPixmap.cxx"
++#include "switchGraphicsStateGuardian.cxx"
++#include "switchGraphicsWindow.cxx"
+diff --git a/panda/src/switchdisplay/switchGraphicsPipe.I b/panda/src/switchdisplay/switchGraphicsPipe.I
+new file mode 100644
+index 0000000000..8db61550ad
+--- /dev/null
++++ b/panda/src/switchdisplay/switchGraphicsPipe.I
+@@ -0,0 +1,12 @@
++/**
++ * PANDA 3D SOFTWARE
++ * Copyright (c) Carnegie Mellon University.  All rights reserved.
++ *
++ * All use of this software is subject to the terms of the revised BSD
++ * license.  You should have received a copy of this license along
++ * with this source code in a file named "LICENSE."
++ *
++ * @file switchGraphicsPipe.I
++ * @author rdb
++ * @date 2013-01-11
++ */
+diff --git a/panda/src/switchdisplay/switchGraphicsPipe.cxx b/panda/src/switchdisplay/switchGraphicsPipe.cxx
+new file mode 100644
+index 0000000000..fb77716a47
+--- /dev/null
++++ b/panda/src/switchdisplay/switchGraphicsPipe.cxx
+@@ -0,0 +1,213 @@
++/**
++ * PANDA 3D SOFTWARE
++ * Copyright (c) Carnegie Mellon University.  All rights reserved.
++ *
++ * All use of this software is subject to the terms of the revised BSD
++ * license.  You should have received a copy of this license along
++ * with this source code in a file named "LICENSE."
++ *
++ * @file switchGraphicsPipe.cxx
++ * @author rdb
++ * @date 2013-01-11
++ */
++
++// #include "switchGraphicsBuffer.h"
++#include "switchGraphicsPipe.h"
++// #include "switchGraphicsPixmap.h"
++#include "switchGraphicsWindow.h"
++#include "switchGraphicsStateGuardian.h"
++#include "config_switchdisplay.h"
++#include "frameBufferProperties.h"
++
++TypeHandle SwitchGraphicsPipe::_type_handle;
++
++/**
++ *
++ */
++SwitchGraphicsPipe::
++SwitchGraphicsPipe() {
++  _is_valid = false;
++  _supported_types = OT_window | OT_buffer | OT_texture_buffer;
++  _egl_display = nullptr;
++
++  _display_width = 0;
++  _display_height = 0;
++
++  _egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
++  if (!eglInitialize(_egl_display, nullptr, nullptr)) {
++    switchdisplay_cat.error()
++      << "Couldn't initialize the EGL display: "
++      << get_egl_error_string(eglGetError()) << "\n";
++  }
++
++  if (!eglBindAPI(EGL_OPENGL_ES_API)) {
++    switchdisplay_cat.error()
++      << "Couldn't bind EGL to the OpenGL ES API: "
++      << get_egl_error_string(eglGetError()) << "\n";
++  }
++
++  _is_valid = true;
++}
++
++/**
++ *
++ */
++SwitchGraphicsPipe::
++~SwitchGraphicsPipe() {
++  if (_egl_display) {
++    if (!eglTerminate(_egl_display)) {
++      switchdisplay_cat.error() << "Failed to terminate EGL display: "
++        << get_egl_error_string(eglGetError()) << "\n";
++    }
++  }
++}
++
++/**
++ * Returns the name of the rendering interface associated with this
++ * GraphicsPipe.  This is used to present to the user to allow him/her to
++ * choose between several possible GraphicsPipes available on a particular
++ * platform, so the name should be meaningful and unique for a given platform.
++ */
++std::string SwitchGraphicsPipe::
++get_interface_name() const {
++  return "OpenGL ES";
++}
++
++/**
++ * This function is passed to the GraphicsPipeSelection object to allow the
++ * user to make a default SwitchGraphicsPipe.
++ */
++PT(GraphicsPipe) SwitchGraphicsPipe::
++pipe_constructor() {
++  return new SwitchGraphicsPipe;
++}
++
++/**
++ * Returns an indication of the thread in which this GraphicsPipe requires its
++ * window processing to be performed: typically either the app thread (e.g.
++ * X) or the draw thread (Windows).
++ */
++GraphicsPipe::PreferredWindowThread
++SwitchGraphicsPipe::get_preferred_window_thread() const {
++  return PWT_app;
++}
++
++/**
++ * Creates a new window on the pipe, if possible.
++ */
++PT(GraphicsOutput) SwitchGraphicsPipe::
++make_output(const std::string &name,
++            const FrameBufferProperties &fb_prop,
++            const WindowProperties &win_prop,
++            int flags,
++            GraphicsEngine *engine,
++            GraphicsStateGuardian *gsg,
++            GraphicsOutput *host,
++            int retry,
++            bool &precertify) {
++
++  if (!_is_valid) {
++    return nullptr;
++  }
++
++  SwitchGraphicsStateGuardian *switchgsg = 0;
++  if (gsg != 0) {
++    DCAST_INTO_R(switchgsg, gsg, nullptr);
++  }
++
++  // First thing to try: an eglGraphicsWindow
++
++  if (retry == 0) {
++    if (((flags&BF_require_parasite)!=0)||
++        ((flags&BF_refuse_window)!=0)||
++        ((flags&BF_resizeable)!=0)||
++        ((flags&BF_size_track_host)!=0)||
++        ((flags&BF_rtt_cumulative)!=0)||
++        ((flags&BF_can_bind_color)!=0)||
++        ((flags&BF_can_bind_every)!=0)) {
++      return nullptr;
++    }
++    return new SwitchGraphicsWindow(engine, this, name, fb_prop, win_prop,
++                                     flags, gsg, host);
++  }
++
++  // Second thing to try: a GLES(2)GraphicsBuffer
++  /*if (retry == 1) {
++    if ((host==0)||
++  // (!gl_support_fbo)||
++        ((flags&BF_require_parasite)!=0)||
++        ((flags&BF_require_window)!=0)) {
++      return NULL;
++    }
++    // Early failure - if we are sure that this buffer WONT meet specs, we can
++    // bail out early.
++    if ((flags & BF_fb_props_optional)==0) {
++      if ((fb_prop.get_indexed_color() > 0)||
++          (fb_prop.get_back_buffers() > 0)||
++          (fb_prop.get_accum_bits() > 0)||
++          (fb_prop.get_multisamples() > 0)) {
++        return NULL;
++      }
++    }
++    // Early success - if we are sure that this buffer WILL meet specs, we can
++    // precertify it.
++    if ((eglgsg != 0) &&
++        (eglgsg->is_valid()) &&
++        (!eglgsg->needs_reset()) &&
++        (eglgsg->_supports_framebuffer_object) &&
++        (eglgsg->_glDrawBuffers != 0)&&
++        (fb_prop.is_basic())) {
++      precertify = true;
++    }
++#ifdef OPENGLES_2
++    return new GLES2GraphicsBuffer(engine, this, name, fb_prop, win_prop,
++                                  flags, gsg, host);
++#else
++    return new GLESGraphicsBuffer(engine, this, name, fb_prop, win_prop,
++                                  flags, gsg, host);
++#endif
++  }
++
++  // Third thing to try: a eglGraphicsBuffer
++  if (retry == 2) {
++    if (((flags&BF_require_parasite)!=0)||
++        ((flags&BF_require_window)!=0)||
++        ((flags&BF_resizeable)!=0)||
++        ((flags&BF_size_track_host)!=0)) {
++      return NULL;
++    }
++
++    if (!support_rtt) {
++      if (((flags&BF_rtt_cumulative)!=0)||
++          ((flags&BF_can_bind_every)!=0)) {
++        // If we require Render-to-Texture, but can't be sure we support it,
++        // bail.
++        return NULL;
++      }
++    }
++
++    return new eglGraphicsBuffer(engine, this, name, fb_prop, win_prop,
++                                 flags, gsg, host);
++  }
++
++  // Fourth thing to try: an eglGraphicsPixmap.
++  if (retry == 3) {
++    if (((flags&BF_require_parasite)!=0)||
++        ((flags&BF_require_window)!=0)||
++        ((flags&BF_resizeable)!=0)||
++        ((flags&BF_size_track_host)!=0)) {
++      return NULL;
++    }
++
++    if (((flags&BF_rtt_cumulative)!=0)||
++        ((flags&BF_can_bind_every)!=0)) {
++      return NULL;
++    }
++
++    return new eglGraphicsPixmap(engine, this, name, fb_prop, win_prop,
++                                 flags, gsg, host);
++  }*/
++
++  // Nothing else left to try.
++  return nullptr;
++}
+diff --git a/panda/src/switchdisplay/switchGraphicsPipe.h b/panda/src/switchdisplay/switchGraphicsPipe.h
+new file mode 100644
+index 0000000000..7c315e7b73
+--- /dev/null
++++ b/panda/src/switchdisplay/switchGraphicsPipe.h
+@@ -0,0 +1,90 @@
++/**
++ * PANDA 3D SOFTWARE
++ * Copyright (c) Carnegie Mellon University.  All rights reserved.
++ *
++ * All use of this software is subject to the terms of the revised BSD
++ * license.  You should have received a copy of this license along
++ * with this source code in a file named "LICENSE."
++ *
++ * @file switchGraphicsPipe.h
++ * @author rdb
++ * @date 2013-01-11
++ */
++
++#ifndef SWITCHGRAPHICSPIPE_H
++#define SWITCHGRAPHICSPIPE_H
++
++#include "pandabase.h"
++#include "graphicsWindow.h"
++#include "graphicsPipe.h"
++
++#ifdef OPENGLES_2
++  #include "gles2gsg.h"
++// #define NativeDisplayType EGLNativeDisplayType #define NativePixmapType
++// EGLNativePixmapType #define NativeWindowType EGLNativeWindowType
++#else
++  #include "glesgsg.h"
++#endif
++#include <EGL/egl.h>
++
++class FrameBufferProperties;
++
++class SwitchGraphicsBuffer;
++class SwitchGraphicsPixmap;
++class SwitchGraphicsWindow;
++
++/**
++ * This graphics pipe represents the interface for creating OpenGL ES graphics
++ * windows on a Nintendo Switch (using EGL provided by libnx).
++ */
++class SwitchGraphicsPipe : public GraphicsPipe {
++public:
++  SwitchGraphicsPipe();
++  virtual ~SwitchGraphicsPipe();
++
++  virtual std::string get_interface_name() const;
++  static PT(GraphicsPipe) pipe_constructor();
++
++public:
++  virtual PreferredWindowThread get_preferred_window_thread() const;
++
++protected:
++  virtual PT(GraphicsOutput) make_output(const std::string &name,
++                                         const FrameBufferProperties &fb_prop,
++                                         const WindowProperties &win_prop,
++                                         int flags,
++                                         GraphicsEngine *engine,
++                                         GraphicsStateGuardian *gsg,
++                                         GraphicsOutput *host,
++                                         int retry,
++                                         bool &precertify);
++
++private:
++  EGLDisplay _egl_display;
++  GraphicsWindow *_window;
++
++public:
++  static TypeHandle get_class_type() {
++    return _type_handle;
++  }
++  static void init_type() {
++    GraphicsPipe::init_type();
++    register_type(_type_handle, "SwitchGraphicsPipe",
++                  GraphicsPipe::get_class_type());
++  }
++  virtual TypeHandle get_type() const {
++    return get_class_type();
++  }
++  virtual TypeHandle force_init_type() {init_type(); return get_class_type();}
++
++private:
++  static TypeHandle _type_handle;
++
++  friend class SwitchGraphicsBuffer;
++  friend class SwitchGraphicsPixmap;
++  friend class SwitchGraphicsWindow;
++};
++
++#include "switchGraphicsPipe.I"
++
++#endif
+diff --git a/panda/src/switchdisplay/switchGraphicsStateGuardian.I b/panda/src/switchdisplay/switchGraphicsStateGuardian.I
+new file mode 100644
+index 0000000000..47efa0ee81
+--- /dev/null
++++ b/panda/src/switchdisplay/switchGraphicsStateGuardian.I
+@@ -0,0 +1,21 @@
++/**
++ * PANDA 3D SOFTWARE
++ * Copyright (c) Carnegie Mellon University.  All rights reserved.
++ *
++ * All use of this software is subject to the terms of the revised BSD
++ * license.  You should have received a copy of this license along
++ * with this source code in a file named "LICENSE."
++ *
++ * @file switchGraphicsStateGuardian.I
++ * @author rdb
++ * @date 2013-01-11
++ */
++
++/**
++ * Gets the FrameBufferProperties for all windows and buffers that use this
++ * GSG.
++ */
++INLINE const FrameBufferProperties &SwitchGraphicsStateGuardian::
++get_fb_properties() const {
++  return _fbprops;
++}
+diff --git a/panda/src/switchdisplay/switchGraphicsStateGuardian.cxx b/panda/src/switchdisplay/switchGraphicsStateGuardian.cxx
+new file mode 100644
+index 0000000000..a8d31d9980
+--- /dev/null
++++ b/panda/src/switchdisplay/switchGraphicsStateGuardian.cxx
+@@ -0,0 +1,384 @@
++/**
++ * PANDA 3D SOFTWARE
++ * Copyright (c) Carnegie Mellon University.  All rights reserved.
++ *
++ * All use of this software is subject to the terms of the revised BSD
++ * license.  You should have received a copy of this license along
++ * with this source code in a file named "LICENSE."
++ *
++ * @file switchGraphicsStateGuardian.cxx
++ * @author rdb
++ * @date 2013-01-11
++ */
++
++#include "switchGraphicsStateGuardian.h"
++#include "config_switchdisplay.h"
++#include "lightReMutexHolder.h"
++
++TypeHandle SwitchGraphicsStateGuardian::_type_handle;
++
++/**
++ *
++ */
++SwitchGraphicsStateGuardian::
++SwitchGraphicsStateGuardian(GraphicsEngine *engine, GraphicsPipe *pipe,
++       SwitchGraphicsStateGuardian *share_with) :
++#ifdef OPENGLES_2
++  GLES2GraphicsStateGuardian(engine, pipe)
++#else
++  GLESGraphicsStateGuardian(engine, pipe)
++#endif
++{
++  _share_context = 0;
++  _context = 0;
++  _egl_display = 0;
++  _fbconfig = 0;
++  _format = 0;
++
++  if (share_with != nullptr) {
++    _prepared_objects = share_with->get_prepared_objects();
++    _share_context = share_with->_context;
++  }
++}
++
++/**
++ *
++ */
++SwitchGraphicsStateGuardian::
++~SwitchGraphicsStateGuardian() {
++  if (_context != (EGLContext)nullptr) {
++    if (!eglDestroyContext(_egl_display, _context)) {
++      switchdisplay_cat.error() << "Failed to destroy EGL context: "
++        << get_egl_error_string(eglGetError()) << "\n";
++    }
++    _context = (EGLContext)nullptr;
++  }
++}
++
++/**
++ * Gets the FrameBufferProperties to match the indicated config.
++ */
++void SwitchGraphicsStateGuardian::
++get_properties(FrameBufferProperties &properties,
++      bool &pbuffer_supported, bool &pixmap_supported,
++                        bool &slow, EGLConfig config) {
++
++  properties.clear();
++
++  // Now update our framebuffer_mode and bit depth appropriately.
++  EGLint red_size, green_size, blue_size,
++    alpha_size,
++    depth_size, stencil_size, samples, surface_type, caveat;
++
++  eglGetConfigAttrib(_egl_display, config, EGL_RED_SIZE, &red_size);
++  eglGetConfigAttrib(_egl_display, config, EGL_GREEN_SIZE, &green_size);
++  eglGetConfigAttrib(_egl_display, config, EGL_BLUE_SIZE, &blue_size);
++  eglGetConfigAttrib(_egl_display, config, EGL_ALPHA_SIZE, &alpha_size);
++  eglGetConfigAttrib(_egl_display, config, EGL_DEPTH_SIZE, &depth_size);
++  eglGetConfigAttrib(_egl_display, config, EGL_STENCIL_SIZE, &stencil_size);
++  eglGetConfigAttrib(_egl_display, config, EGL_SAMPLES, &samples);
++  eglGetConfigAttrib(_egl_display, config, EGL_SURFACE_TYPE, &surface_type);
++  eglGetConfigAttrib(_egl_display, config, EGL_CONFIG_CAVEAT, &caveat);
++  int err = eglGetError();
++  if (err != EGL_SUCCESS) {
++    switchdisplay_cat.error() << "Failed to get EGL config attrib: "
++      << get_egl_error_string(err) << "\n";
++  }
++
++  pbuffer_supported = false;
++  if ((surface_type & EGL_PBUFFER_BIT)!=0) {
++    pbuffer_supported = true;
++  }
++
++  pixmap_supported = false;
++  if ((surface_type & EGL_PIXMAP_BIT)!=0) {
++    pixmap_supported = true;
++  }
++
++  slow = false;
++  if (caveat == EGL_SLOW_CONFIG) {
++    slow = true;
++  }
++
++  if ((surface_type & EGL_WINDOW_BIT)==0) {
++    // We insist on having a context that will support an onscreen window.
++    return;
++  }
++
++  properties.set_back_buffers(1);
++  properties.set_rgb_color(1);
++  properties.set_rgba_bits(red_size, green_size, blue_size, alpha_size);
++  properties.set_stencil_bits(stencil_size);
++  properties.set_depth_bits(depth_size);
++  properties.set_multisamples(samples);
++
++  // Set both hardware and software bits, indicating not-yet-known.
++  properties.set_force_software(1);
++  properties.set_force_hardware(1);
++}
++
++/**
++ * Selects a visual or fbconfig for all the windows and buffers that use this
++ * gsg.
++ */
++void SwitchGraphicsStateGuardian::
++choose_pixel_format(const FrameBufferProperties &properties,
++                    bool need_pbuffer, bool need_pixmap) {
++
++  _egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
++  _fbconfig = 0;
++  _format = 0;
++
++  int attrib_list[] = {
++    EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
++#ifdef OPENGLES_1
++    EGL_RENDERABLE_TYPE, EGL_OPENGL_ES_BIT,
++#endif
++#ifdef OPENGLES_2
++    EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
++#endif
++    EGL_NONE
++  };
++
++  // First get the number of matching configurations, so we know how much
++  // memory to allocate.
++  int num_configs = 0, returned_configs;
++  if (!eglChooseConfig(_egl_display, attrib_list, nullptr, num_configs, &returned_configs) || returned_configs <= 0) {
++    switchdisplay_cat.error() << "eglChooseConfig failed: "
++      << get_egl_error_string(eglGetError()) << "\n";
++    return;
++  }
++
++  num_configs = returned_configs;
++  EGLConfig *configs = new EGLConfig[num_configs];
++
++  if (!eglChooseConfig(_egl_display, attrib_list, configs, num_configs, &returned_configs) || returned_configs <= 0) {
++    switchdisplay_cat.error() << "eglChooseConfig failed: "
++      << get_egl_error_string(eglGetError()) << "\n";
++    delete[] configs;
++    return;
++  }
++
++  int best_quality = 0;
++  int best_result = 0;
++  FrameBufferProperties best_props;
++
++  for (int i = 0; i < num_configs; ++i) {
++    FrameBufferProperties fbprops;
++    bool pbuffer_supported, pixmap_supported, slow;
++    get_properties(fbprops, pbuffer_supported, pixmap_supported,
++                   slow, configs[i]);
++    // We're not protecting this code by an is_debug() check, because if we
++    // do, some weird compiler bug appears and somehow makes the quality
++    // always 0.
++    const char *pbuffertext = pbuffer_supported ? " (pbuffer)" : "";
++    const char *pixmaptext = pixmap_supported ? " (pixmap)" : "";
++    const char *slowtext = slow ? " (slow)" : "";
++    switchdisplay_cat.debug()
++      << i << ": " << fbprops << pbuffertext << pixmaptext << slowtext << "\n";
++    int quality = fbprops.get_quality(properties);
++    if ((quality > 0)&&(slow)) quality -= 10000000;
++
++    if (need_pbuffer && !pbuffer_supported) {
++      continue;
++    }
++    if (need_pixmap && !pixmap_supported) {
++      continue;
++    }
++
++    // We need to reject any 32-bit depth-buffers,
++    // as they don't actaully work and just result in a segmentation fault on 
++    // glClear();
++    if (fbprops.get_depth_bits() == 32) {
++      continue;
++    }
++
++
++    if (quality > best_quality) {
++      best_quality = quality;
++      best_result = i;
++      best_props = fbprops;
++    }
++  }
++
++  if (best_quality > 0) {
++    switchdisplay_cat.debug()
++      << "Chosen config " << best_result << ": " << best_props << "\n";
++    _fbconfig = configs[best_result];
++    eglGetConfigAttrib(_egl_display, _fbconfig, EGL_NATIVE_VISUAL_ID, &_format);
++
++    switchdisplay_cat.debug()
++      << "Window format: " << _format << "\n";
++
++    _fbprops = best_props;
++    return;
++  }
++
++  switchdisplay_cat.error() <<
++    "Could not find a usable pixel format.\n";
++
++  delete[] configs;
++}
++
++/**
++ * Creates the context based on the config previously obtained in
++ * choose_pixel_format.
++ */
++bool SwitchGraphicsStateGuardian::
++create_context() {
++  if (_context != EGL_NO_CONTEXT) {
++    destroy_context();
++  }
++
++#ifdef OPENGLES_2
++  EGLint context_attribs[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
++  _context = eglCreateContext(_egl_display, _fbconfig, _share_context, context_attribs);
++#else
++  _context = eglCreateContext(_egl_display, _fbconfig, _share_context, nullptr);
++#endif
++
++  int err = eglGetError();
++  if (_context != EGL_NO_CONTEXT && err == EGL_SUCCESS) {
++    _needs_reset = true;
++    return true;
++  }
++
++  switchdisplay_cat.error()
++    << "Could not create EGL context!\n"
++    << get_egl_error_string(err) << "\n";
++  return false;
++}
++
++/**
++ * Destroys the context previously created by create_context.
++ */
++void SwitchGraphicsStateGuardian::
++destroy_context() {
++  if (_context == EGL_NO_CONTEXT) {
++    return;
++  }
++
++  if (!eglMakeCurrent(_egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)) {
++    switchdisplay_cat.error() << "Failed to call eglMakeCurrent: "
++      << get_egl_error_string(eglGetError()) << "\n";
++  }
++
++  release_all();
++
++  eglDestroyContext(_egl_display, _context);
++  _context = EGL_NO_CONTEXT;
++}
++
++/**
++ * Resets all internal state as if the gsg were newly created.
++ */
++void SwitchGraphicsStateGuardian::
++reset() {
++#ifdef OPENGLES_2
++  GLES2GraphicsStateGuardian::reset();
++#else
++  GLESGraphicsStateGuardian::reset();
++#endif
++
++  // If "PixelFlinger" is present, assume software.
++  if (_gl_renderer.find("PixelFlinger") != std::string::npos) {
++    _fbprops.set_force_software(1);
++    _fbprops.set_force_hardware(0);
++  } else {
++    _fbprops.set_force_hardware(1);
++    _fbprops.set_force_software(0);
++  }
++}
++
++/**
++ * Returns true if the runtime GLX version number is at least the indicated
++ * value, false otherwise.
++ */
++bool SwitchGraphicsStateGuardian::
++egl_is_at_least_version(int major_version, int minor_version) const {
++  if (_egl_version_major < major_version) {
++    return false;
++  }
++  if (_egl_version_minor < minor_version) {
++    return false;
++  }
++  return true;
++}
++
++/**
++ * Calls glFlush().
++ */
++void SwitchGraphicsStateGuardian::
++gl_flush() const {
++#ifdef OPENGLES_2
++  GLES2GraphicsStateGuardian::gl_flush();
++#else
++  GLESGraphicsStateGuardian::gl_flush();
++#endif
++}
++
++/**
++ * Returns the result of glGetError().
++ */
++GLenum SwitchGraphicsStateGuardian::
++gl_get_error() const {
++#ifdef OPENGLES_2
++  return GLES2GraphicsStateGuardian::gl_get_error();
++#else
++  return GLESGraphicsStateGuardian::gl_get_error();
++#endif
++}
++
++/**
++ * Queries the runtime version of OpenGL in use.
++ */
++void SwitchGraphicsStateGuardian::
++query_gl_version() {
++#ifdef OPENGLES_2
++  GLES2GraphicsStateGuardian::query_gl_version();
++#else
++  GLESGraphicsStateGuardian::query_gl_version();
++#endif
++
++  // Calling eglInitialize on an already-initialized display will just provide
++  // us the version numbers.
++  if (!eglInitialize(_egl_display, &_egl_version_major, &_egl_version_minor)) {
++    switchdisplay_cat.error() << "Failed to get EGL version number: "
++      << get_egl_error_string(eglGetError()) << "\n";
++  }
++
++  // We output to glesgsg_cat instead of switchdisplay_cat, since this is
++  // where the GL version has been output, and it's nice to see the two of
++  // these together.
++#ifdef OPENGLES_2
++  if (gles2gsg_cat.is_debug()) {
++    gles2gsg_cat.debug()
++#else
++  if (glesgsg_cat.is_debug()) {
++    glesgsg_cat.debug()
++#endif
++      << "EGL_VERSION = " << _egl_version_major << "." << _egl_version_minor
++      << "\n";
++  }
++}
++
++/**
++ * This may be redefined by a derived class (e.g.  glx or wgl) to get whatever
++ * further extensions strings may be appropriate to that interface, in
++ * addition to the GL extension strings return by glGetString().
++ */
++void SwitchGraphicsStateGuardian::
++get_extra_extensions() {
++  save_extensions(eglQueryString(_egl_display, EGL_EXTENSIONS));
++}
++
++/**
++ * Returns the pointer to the GL extension function with the indicated name.
++ * It is the responsibility of the caller to ensure that the required
++ * extension is defined in the OpenGL runtime prior to calling this; it is an
++ * error to call this for a function that is not defined.
++ */
++void *SwitchGraphicsStateGuardian::
++do_get_extension_func(const char *name) {
++  return (void *)eglGetProcAddress(name);
++}
+diff --git a/panda/src/switchdisplay/switchGraphicsStateGuardian.h b/panda/src/switchdisplay/switchGraphicsStateGuardian.h
+new file mode 100644
+index 0000000000..b0d221f113
+--- /dev/null
++++ b/panda/src/switchdisplay/switchGraphicsStateGuardian.h
+@@ -0,0 +1,95 @@
++/**
++ * PANDA 3D SOFTWARE
++ * Copyright (c) Carnegie Mellon University.  All rights reserved.
++ *
++ * All use of this software is subject to the terms of the revised BSD
++ * license.  You should have received a copy of this license along
++ * with this source code in a file named "LICENSE."
++ *
++ * @file switchGraphicsStateGuardian.h
++ * @author rdb
++ * @date 2009-05-21
++ */
++
++#ifndef SWITCHGRAPHICSSTATEGUARDIAN_H
++#define SWITCHGRAPHICSSTATEGUARDIAN_H
++
++#include "pandabase.h"
++#include "switchGraphicsPipe.h"
++
++/**
++ * A tiny specialization on GLESGraphicsStateGuardian to add some egl-specific
++ * information.
++ */
++#ifdef OPENGLES_2
++class SwitchGraphicsStateGuardian : public GLES2GraphicsStateGuardian {
++#else
++class SwitchGraphicsStateGuardian : public GLESGraphicsStateGuardian {
++#endif
++public:
++  INLINE const FrameBufferProperties &get_fb_properties() const;
++  void get_properties(FrameBufferProperties &properties,
++                      bool &pbuffer_supported, bool &pixmap_supported,
++                      bool &slow, EGLConfig config);
++  void choose_pixel_format(const FrameBufferProperties &properties,
++                           bool need_pbuffer, bool need_pixmap);
++  bool create_context();
++  void destroy_context();
++
++  SwitchGraphicsStateGuardian(GraphicsEngine *engine, GraphicsPipe *pipe,
++         SwitchGraphicsStateGuardian *share_with);
++
++  virtual ~SwitchGraphicsStateGuardian();
++
++  virtual void reset();
++
++  bool egl_is_at_least_version(int major_version, int minor_version) const;
++
++protected:
++  EGLContext _share_context;
++  EGLContext _context;
++  EGLDisplay _egl_display;
++  EGLConfig _fbconfig;
++  EGLint _format;
++  FrameBufferProperties _fbprops;
++
++protected:
++  virtual void gl_flush() const;
++  virtual GLenum gl_get_error() const;
++
++  virtual void query_gl_version();
++  virtual void get_extra_extensions();
++  virtual void *do_get_extension_func(const char *name);
++
++private:
++  int _egl_version_major, _egl_version_minor;
++
++  friend class SwitchGraphicsWindow;
++
++public:
++  static TypeHandle get_class_type() {
++    return _type_handle;
++  }
++  static void init_type() {
++#ifdef OPENGLES_2
++    GLES2GraphicsStateGuardian::init_type();
++    register_type(_type_handle, "SwitchGraphicsStateGuardian",
++                  GLES2GraphicsStateGuardian::get_class_type());
++#else
++    GLESGraphicsStateGuardian::init_type();
++    register_type(_type_handle, "SwitchGraphicsStateGuardian",
++                  GLESGraphicsStateGuardian::get_class_type());
++#endif
++  }
++  virtual TypeHandle get_type() const {
++    return get_class_type();
++  }
++  virtual TypeHandle force_init_type() {init_type(); return get_class_type();}
++
++private:
++  static TypeHandle _type_handle;
++};
++
++#include "switchGraphicsStateGuardian.I"
++
++#endif
+diff --git a/panda/src/switchdisplay/switchGraphicsWindow.I b/panda/src/switchdisplay/switchGraphicsWindow.I
+new file mode 100644
+index 0000000000..e5076fad37
+--- /dev/null
++++ b/panda/src/switchdisplay/switchGraphicsWindow.I
+@@ -0,0 +1,12 @@
++/**
++ * PANDA 3D SOFTWARE
++ * Copyright (c) Carnegie Mellon University.  All rights reserved.
++ *
++ * All use of this software is subject to the terms of the revised BSD
++ * license.  You should have received a copy of this license along
++ * with this source code in a file named "LICENSE."
++ *
++ * @file switchGraphicsWindow.I
++ * @author rdb
++ * @date 2013-01-11
++ */
+diff --git a/panda/src/switchdisplay/switchGraphicsWindow.cxx b/panda/src/switchdisplay/switchGraphicsWindow.cxx
+new file mode 100644
+index 0000000000..bd9fe47811
+--- /dev/null
++++ b/panda/src/switchdisplay/switchGraphicsWindow.cxx
+@@ -0,0 +1,339 @@
++/**
++ * PANDA 3D SOFTWARE
++ * Copyright (c) Carnegie Mellon University.  All rights reserved.
++ *
++ * All use of this software is subject to the terms of the revised BSD
++ * license.  You should have received a copy of this license along
++ * with this source code in a file named "LICENSE."
++ *
++ * @file switchGraphicsWindow.cxx
++ * @author rdb
++ * @date 2013-01-11
++ */
++
++#include "switchGraphicsWindow.h"
++#include "switchGraphicsStateGuardian.h"
++#include "config_switchdisplay.h"
++#include "switchGraphicsPipe.h"
++#include "libnxWrapper.h"
++
++#include "graphicsPipe.h"
++#include "keyboardButton.h"
++#include "mouseButton.h"
++#include "clockObject.h"
++#include "pStatTimer.h"
++#include "textEncoder.h"
++#include "throw_event.h"
++#include "nativeWindowHandle.h"
++
++TypeHandle SwitchGraphicsWindow::_type_handle;
++
++/**
++ *
++ */
++SwitchGraphicsWindow::
++SwitchGraphicsWindow(GraphicsEngine *engine, GraphicsPipe *pipe,
++                      const std::string &name,
++                      const FrameBufferProperties &fb_prop,
++                      const WindowProperties &win_prop,
++                      int flags,
++                      GraphicsStateGuardian *gsg,
++                      GraphicsOutput *host) :
++  GraphicsWindow(engine, pipe, name, fb_prop, win_prop, flags, gsg, host),
++  _mouse_button_state(0)
++{
++  SwitchGraphicsPipe *switch_pipe;
++  DCAST_INTO_V(switch_pipe, _pipe);
++
++  _egl_display = switch_pipe->_egl_display;
++  _egl_surface = 0;
++
++  PT(GraphicsWindowInputDevice) device = GraphicsWindowInputDevice::pointer_and_keyboard(this, "keyboard_mouse");
++  add_input_device(device);
++  _input = device;
++}
++
++/**
++ *
++ */
++SwitchGraphicsWindow::
++~SwitchGraphicsWindow() {
++  destroy_surface();
++}
++
++/**
++ * This function will be called within the draw thread before beginning
++ * rendering for a given frame.  It should do whatever setup is required, and
++ * return true if the frame should be rendered, or false if it should be
++ * skipped.
++ */
++bool SwitchGraphicsWindow::
++begin_frame(FrameMode mode, Thread *current_thread) {
++  PStatTimer timer(_make_current_pcollector, current_thread);
++
++  begin_frame_spam(mode);
++  if (_gsg == nullptr) {
++    return false;
++  }
++
++  // XXX not open yet.
++  if (_egl_surface == EGL_NO_SURFACE) {
++    return false;
++  }
++
++  SwitchGraphicsStateGuardian *switchgsg;
++  DCAST_INTO_R(switchgsg, _gsg, false);
++  {
++    if (eglGetCurrentDisplay() == _egl_display &&
++        eglGetCurrentSurface(EGL_READ) == _egl_surface &&
++        eglGetCurrentSurface(EGL_DRAW) == _egl_surface &&
++        eglGetCurrentContext() == switchgsg->_context) {
++      // No need to make the context current again.  Short-circuit this
++      // possibly-expensive call.
++    } else {
++      // Need to set the context.
++      if (!eglMakeCurrent(_egl_display, _egl_surface, _egl_surface, switchgsg->_context)) {
++        switchdisplay_cat.error() << "Failed to call eglMakeCurrent: "
++          << get_egl_error_string(eglGetError()) << "\n";
++      }
++    }
++  }
++
++  // Now that we have made the context current to a window, we can reset the
++  // GSG state if this is the first time it has been used.  (We can't just
++  // call reset() when we construct the GSG, because reset() requires having a
++  // current context.)
++  switchgsg->reset_if_new();
++
++  if (mode == FM_render) {
++    // begin_render_texture();
++    clear_cube_map_selection();
++  }
++
++  _gsg->set_current_properties(&get_fb_properties());
++  return _gsg->begin_frame(current_thread);
++}
++
++/**
++ * This function will be called within the draw thread after rendering is
++ * completed for a given frame.  It should do whatever finalization is
++ * required.
++ */
++void SwitchGraphicsWindow::
++end_frame(FrameMode mode, Thread *current_thread) {
++  end_frame_spam(mode);
++  nassertv(_gsg != nullptr);
++
++  if (mode == FM_render) {
++    // end_render_texture();
++    copy_to_textures();
++  }
++
++  _gsg->end_frame(current_thread);
++
++  if (mode == FM_render) {
++    trigger_flip();
++    clear_cube_map_selection();
++  }
++}
++
++/**
++ * This function will be called within the draw thread after begin_flip() has
++ * been called on all windows, to finish the exchange of the front and back
++ * buffers.
++ *
++ * This should cause the window to wait for the flip, if necessary.
++ */
++void SwitchGraphicsWindow::
++end_flip() {
++  if (_gsg != nullptr && _flip_ready) {
++
++    // It doesn't appear to be necessary to ensure the graphics context is
++    // current before flipping the windows, and insisting on doing so can be a
++    // significant performance hit.
++
++    // make_current();
++
++    if (_egl_surface != EGL_NO_SURFACE) {
++      eglSwapBuffers(_egl_display, _egl_surface);
++    }
++  }
++  GraphicsWindow::end_flip();
++}
++
++/**
++ * Do whatever processing is necessary to ensure that the window responds to
++ * user events.  Also, honor any requests recently made via
++ * request_properties()
++ *
++ * This function is called only within the window thread.
++ */
++void SwitchGraphicsWindow::
++process_events() {
++  GraphicsWindow::process_events();
++
++  // Loop until all events are read and processed.
++  bool res = switch_process_events();
++  if (!res) {
++    switchdisplay_cat.error() << "switch_process_events(): time to exit.\n";
++  }
++}
++
++/**
++ * Applies the requested set of properties to the window, if possible, for
++ * instance to request a change in size or minimization status.
++ *
++ * The window properties are applied immediately, rather than waiting until
++ * the next frame.  This implies that this method may *only* be called from
++ * within the window thread.
++ *
++ * The return value is true if the properties are set, false if they are
++ * ignored.  This is mainly useful for derived classes to implement extensions
++ * to this function.
++ */
++void SwitchGraphicsWindow::
++set_properties_now(WindowProperties &properties) {
++  if (_pipe == nullptr) {
++    // If the pipe is null, we're probably closing down.
++    GraphicsWindow::set_properties_now(properties);
++    return;
++  }
++
++  GraphicsWindow::set_properties_now(properties);
++  if (!properties.is_any_specified()) {
++    // The base class has already handled this case.
++    return;
++  }
++
++  /* TODO what can we actually change? */
++}
++
++/**
++ * Closes the window right now.  Called from the window thread.
++ */
++void SwitchGraphicsWindow::
++close_window() {
++  destroy_surface();
++
++  if (_gsg != nullptr) {
++    _gsg.clear();
++  }
++
++  GraphicsWindow::close_window();
++
++  // TODO null out Switch callbacks
++}
++
++/**
++ * Opens the window right now.  Called from the window thread.  Returns true
++ * if the window is successfully opened, or false if there was a problem.
++ */
++bool SwitchGraphicsWindow::
++open_window() {
++  // GSG CreationInitialization
++  SwitchGraphicsStateGuardian *switchgsg;
++  if (_gsg == 0) {
++    // There is no old gsg.  Create a new one.
++    switchgsg = new SwitchGraphicsStateGuardian(_engine, _pipe, nullptr);
++    switchgsg->choose_pixel_format(_fb_properties, false, false);
++    _gsg = switchgsg;
++  } else {
++    // If the old gsg has the wrong pixel format, create a new one that shares
++    // with the old gsg.
++    DCAST_INTO_R(switchgsg, _gsg, false);
++    if (!switchgsg->get_fb_properties().subsumes(_fb_properties)) {
++      switchgsg = new SwitchGraphicsStateGuardian(_engine, _pipe, switchgsg);
++      switchgsg->choose_pixel_format(_fb_properties, false, false);
++      _gsg = switchgsg;
++    }
++  }
++
++  create_surface();
++
++  // create_surface should have been called by now.
++  if (_egl_surface == EGL_NO_SURFACE) {
++    return false;
++  }
++
++  // Set some other properties.
++  _properties.set_origin(0, 0);
++  _properties.set_cursor_hidden(true);
++  _properties.set_undecorated(true);
++
++  if (!switchgsg->get_fb_properties().verify_hardware_software
++      (_fb_properties, switchgsg->get_gl_renderer())) {
++    close_window();
++    return false;
++  }
++
++  _fb_properties = switchgsg->get_fb_properties();
++
++  return true;
++}
++
++/**
++ * Terminates the EGL surface.
++ */
++void SwitchGraphicsWindow::
++destroy_surface() {
++  if (_egl_surface != EGL_NO_SURFACE) {
++    if (!eglDestroySurface(_egl_display, _egl_surface)) {
++      switchdisplay_cat.error() << "Failed to destroy surface: "
++        << get_egl_error_string(eglGetError()) << "\n";
++    }
++    _egl_surface = EGL_NO_SURFACE;
++  }
++
++  // Destroy the current context.
++  if (_gsg != nullptr) {
++    SwitchGraphicsStateGuardian *switchgsg;
++    DCAST_INTO_V(switchgsg, _gsg);
++    switchgsg->destroy_context();
++  }
++}
++
++/**
++ * Creates the EGL surface.
++ */
++bool SwitchGraphicsWindow::
++create_surface() {
++  SwitchGraphicsStateGuardian *switchgsg;
++  DCAST_INTO_R(switchgsg, _gsg, false);
++
++  NWindow *switch_window = switch_get_native_window();
++
++  // Create the EGL surface.
++  _egl_surface = eglCreateWindowSurface(_egl_display, switchgsg->_fbconfig, switch_window, nullptr);
++  if (eglGetError() != EGL_SUCCESS) {
++    switchdisplay_cat.error()
++      << "Failed to create window surface.\n";
++    return false;
++  }
++
++  // Create a context.
++  if (switchgsg->_context == EGL_NO_CONTEXT) {
++    if (!switchgsg->create_context()) {
++      return false;
++    }
++  }
++
++  // Switch to our newly created context.
++  if (!eglMakeCurrent(_egl_display, _egl_surface, _egl_surface, switchgsg->_context)) {
++    switchdisplay_cat.error() << "Failed to call eglMakeCurrent: "
++      << get_egl_error_string(eglGetError()) << "\n";
++  }
++
++  // Query the size of the surface.  EGLint width, height;
++  // eglQuerySurface(_egl_display, _egl_surface, EGL_WIDTH, &width);
++  // eglQuerySurface(_egl_display, _egl_surface, EGL_HEIGHT, &height);
++
++  switchgsg->reset_if_new();
++  if (!switchgsg->is_valid()) {
++    close_window();
++    return false;
++  }
++
++  return true;
++}
++
++/* TODO handle input */
+\ No newline at end of file
+diff --git a/panda/src/switchdisplay/switchGraphicsWindow.h b/panda/src/switchdisplay/switchGraphicsWindow.h
+new file mode 100644
+index 0000000000..721c4da7d7
+--- /dev/null
++++ b/panda/src/switchdisplay/switchGraphicsWindow.h
+@@ -0,0 +1,79 @@
++/**
++ * PANDA 3D SOFTWARE
++ * Copyright (c) Carnegie Mellon University.  All rights reserved.
++ *
++ * All use of this software is subject to the terms of the revised BSD
++ * license.  You should have received a copy of this license along
++ * with this source code in a file named "LICENSE."
++ *
++ * @file switchGraphicsWindow.h
++ * @author rdb
++ * @date 2013-01-11
++ */
++
++#ifndef SWITCHGRAPHICSWINDOW_H
++#define SWITCHGRAPHICSWINDOW_H
++
++#include "pandabase.h"
++
++#include "switchGraphicsPipe.h"
++#include "graphicsWindow.h"
++#include "buttonHandle.h"
++
++/**
++ * An interface to manage Switch windows and their appropriate EGL surfaces.
++ */
++class SwitchGraphicsWindow : public GraphicsWindow {
++public:
++  SwitchGraphicsWindow(GraphicsEngine *engine, GraphicsPipe *pipe,
++                        const std::string &name,
++                        const FrameBufferProperties &fb_prop,
++                        const WindowProperties &win_prop,
++                        int flags,
++                        GraphicsStateGuardian *gsg,
++                        GraphicsOutput *host);
++  virtual ~SwitchGraphicsWindow();
++
++  virtual bool begin_frame(FrameMode mode, Thread *current_thread);
++  virtual void end_frame(FrameMode mode, Thread *current_thread);
++  virtual void end_flip();
++
++  virtual void process_events();
++  virtual void set_properties_now(WindowProperties &properties);
++
++protected:
++  virtual void close_window();
++  virtual bool open_window();
++
++  virtual void destroy_surface();
++  virtual bool create_surface();
++
++private:
++  EGLDisplay _egl_display;
++  EGLSurface _egl_surface;
++
++  int32_t _mouse_button_state;
++
++  GraphicsWindowInputDevice *_input;
++
++public:
++  static TypeHandle get_class_type() {
++    return _type_handle;
++  }
++  static void init_type() {
++    GraphicsWindow::init_type();
++    register_type(_type_handle, "SwitchGraphicsWindow",
++                  GraphicsWindow::get_class_type());
++  }
++  virtual TypeHandle get_type() const {
++    return get_class_type();
++  }
++  virtual TypeHandle force_init_type() {init_type(); return get_class_type();}
++
++private:
++  static TypeHandle _type_handle;
++};
++
++#include "switchGraphicsWindow.I"
++
++#endif
+-- 
+2.25.1
+
+
+From 0996718b651ca8bcfa1325525e0319fb4f2b66f5 Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Mon, 25 Oct 2021 02:53:27 -0400
+Subject: [PATCH 7/8] hack
+
+---
+ dtool/Package.cmake | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/dtool/Package.cmake b/dtool/Package.cmake
+index 4c41cfb7d2..cb3d586983 100644
+--- a/dtool/Package.cmake
++++ b/dtool/Package.cmake
+@@ -182,7 +182,7 @@ if(WANT_PYTHON_VERSION)
+ endif()
+ 
+ get_directory_property(_old_cache_vars CACHE_VARIABLES)
+-find_package(Python ${WANT_PYTHON_VERSION} QUIET COMPONENTS Interpreter Development)
++find_package(Python ${WANT_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
+ 
+ if(Python_FOUND)
+   set(PYTHON_FOUND ON)
+-- 
+2.25.1
+
+
+From 85f0095ca07ff6ec6bebe3de352629d9c402eb2f Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Mon, 25 Oct 2021 21:57:38 -0400
+Subject: [PATCH 8/8] pipeline: fix threading on Switch
+
+---
+ panda/src/pipeline/threadPosixImpl.cxx         | 4 ++++
+ panda/src/switchdisplay/switchGraphicsPipe.cxx | 2 +-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/panda/src/pipeline/threadPosixImpl.cxx b/panda/src/pipeline/threadPosixImpl.cxx
+index 18e76cb8d2..ae792e2b5b 100644
+--- a/panda/src/pipeline/threadPosixImpl.cxx
++++ b/panda/src/pipeline/threadPosixImpl.cxx
+@@ -98,6 +98,8 @@ start(ThreadPriority priority, bool joinable) {
+       << "Unable to set stack size.\n";
+   }
+ 
++  // Switch can't use thread priority.
++#ifndef __SWITCH__
+   // Ensure the thread has "system" scope, which should ensure it can run in
+   // parallel with other threads.
+   result = pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
+@@ -138,6 +140,8 @@ start(ThreadPriority priority, bool joinable) {
+       << "Unable to specify thread priority.\n";
+   }
+ 
++#endif // __SWITCH__
++
+   // Increment the parent object's reference count first.  The thread will
+   // eventually decrement it when it terminates.
+   _parent_obj->ref();
+diff --git a/panda/src/switchdisplay/switchGraphicsPipe.cxx b/panda/src/switchdisplay/switchGraphicsPipe.cxx
+index fb77716a47..e362fe90c3 100644
+--- a/panda/src/switchdisplay/switchGraphicsPipe.cxx
++++ b/panda/src/switchdisplay/switchGraphicsPipe.cxx
+@@ -89,7 +89,7 @@ pipe_constructor() {
+  */
+ GraphicsPipe::PreferredWindowThread
+ SwitchGraphicsPipe::get_preferred_window_thread() const {
+-  return PWT_app;
++  return PWT_draw;
+ }
+ 
+ /**
+-- 
+2.25.1
+

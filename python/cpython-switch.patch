@@ -1,0 +1,469 @@
+From 0d081ac0f42b75f9ab6df63841c93f70ace08894 Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Fri, 22 Oct 2021 20:44:26 -0400
+Subject: [PATCH 01/10] configure: hack Horizon platform into configure script
+
+---
+ configure | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/configure b/configure
+index 1baa145e3ed..ef6c50dedb3 100755
+--- a/configure
++++ b/configure
+@@ -3337,6 +3337,9 @@ then
+ 	*-*-vxworks*)
+ 	    ac_sys_system=VxWorks
+ 	    ;;
++	aarch64-none-elf*)
++            ac_sys_system=Horizon
++	    ;;
+ 	*)
+ 		# for now, limit cross builds to known configurations
+ 		MACHDEP="unknown"
+@@ -3387,6 +3390,9 @@ if test "$cross_compiling" = yes; then
+ 	*-*-vxworks*)
+ 		_host_cpu=$host_cpu
+ 		;;
++	aarch64-none-elf*)
++		_host_cpu=$host_cpu
++		;;
+ 	*)
+ 		# for now, limit cross builds to known configurations
+ 		MACHDEP="unknown"
+-- 
+2.25.1
+
+
+From d9fa8494e469026a372e1f6c3f79dd91eb47bca3 Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Fri, 22 Oct 2021 21:00:22 -0400
+Subject: [PATCH 02/10] getpath: do not fail if HAVE_READLINK is false
+
+---
+ Modules/getpath.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/Modules/getpath.c b/Modules/getpath.c
+index 363d62a0657..f13f01dc21a 100644
+--- a/Modules/getpath.c
++++ b/Modules/getpath.c
+@@ -1191,10 +1191,12 @@ calculate_argv0_path(PyCalculatePath *calculate,
+     }
+ #endif
+ 
++#ifdef HAVE_READLINK
+     status = resolve_symlinks(&calculate->argv0_path);
+     if (_PyStatus_EXCEPTION(status)) {
+         return status;
+     }
++#endif
+ 
+     reduce(calculate->argv0_path);
+ 
+-- 
+2.25.1
+
+
+From 9d51bb69489ea284579c5aa4f1e9d1a0096c3d32 Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Fri, 22 Oct 2021 21:24:34 -0400
+Subject: [PATCH 03/10] timemodule: use HAVE_DECL_TZNAME properly
+
+---
+ Modules/timemodule.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Modules/timemodule.c b/Modules/timemodule.c
+index 4caacc3b64d..b76d7b1bb8a 100644
+--- a/Modules/timemodule.c
++++ b/Modules/timemodule.c
+@@ -1670,7 +1670,7 @@ PyDoc_STRVAR(get_clock_info_doc,
+ \n\
+ Get information of the specified clock.");
+ 
+-#ifndef HAVE_DECL_TZNAME
++#if !HAVE_DECL_TZNAME
+ static void
+ get_zone(char *zone, int n, struct tm *p)
+ {
+@@ -1714,7 +1714,7 @@ init_timezone(PyObject *m)
+ 
+     And I'm lazy and hate C so nyer.
+      */
+-#ifdef HAVE_DECL_TZNAME
++#if HAVE_DECL_TZNAME
+     PyObject *otz0, *otz1;
+     tzset();
+     PyModule_AddIntConstant(m, "timezone", _Py_timezone);
+-- 
+2.25.1
+
+
+From cf4453debf182bc4cdfdc5398428bae5dfbd9056 Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Fri, 22 Oct 2021 22:01:01 -0400
+Subject: [PATCH 04/10] posixmodule: disable a bunch of unsupported options on
+ Switch targets
+
+---
+ Modules/posixmodule.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/Modules/posixmodule.c b/Modules/posixmodule.c
+index 25ddc82cb89..8e6885faa81 100644
+--- a/Modules/posixmodule.c
++++ b/Modules/posixmodule.c
+@@ -298,6 +298,9 @@ corresponding Unix manual entries for more information on calls.");
+ 
+ /* Various compilers have only certain posix functions */
+ /* XXX Gosh I wish these were all moved into pyconfig.h */
++/* Me too, buddy. */
++#ifdef __SWITCH__
++#else
+ #if defined(__WATCOMC__) && !defined(__QNX__)           /* Watcom compiler */
+ #  define HAVE_OPENDIR    1
+ #  define HAVE_SYSTEM     1
+@@ -338,6 +341,7 @@ corresponding Unix manual entries for more information on calls.");
+ #    define HAVE_TTYNAME    1
+ #  endif  /* _MSC_VER */
+ #endif  /* ! __WATCOMC__ || __QNX__ */
++#endif /* __SWITCH__ */
+ 
+ _Py_IDENTIFIER(__fspath__);
+ 
+-- 
+2.25.1
+
+
+From 352613200fcd57ff56ffef4b62ea4b2fa7d65acb Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Fri, 22 Oct 2021 22:18:40 -0400
+Subject: [PATCH 05/10] posixmodule: check if umask exists
+
+---
+ Modules/clinic/posixmodule.c.h | 8 ++++++++
+ Modules/posixmodule.c          | 3 ++-
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/Modules/clinic/posixmodule.c.h b/Modules/clinic/posixmodule.c.h
+index 7921c222b90..6c3b69dd57b 100644
+--- a/Modules/clinic/posixmodule.c.h
++++ b/Modules/clinic/posixmodule.c.h
+@@ -1799,6 +1799,8 @@ os_system(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *k
+ 
+ #endif /* defined(HAVE_SYSTEM) && !defined(MS_WINDOWS) */
+ 
++#if defined(HAVE_UMASK)
++
+ PyDoc_STRVAR(os_umask__doc__,
+ "umask($module, mask, /)\n"
+ "--\n"
+@@ -1827,6 +1829,8 @@ os_umask(PyObject *module, PyObject *arg)
+     return return_value;
+ }
+ 
++#endif /* defined(HAVE_UMASK) */
++
+ PyDoc_STRVAR(os_unlink__doc__,
+ "unlink($module, /, path, *, dir_fd=None)\n"
+ "--\n"
+@@ -8780,6 +8784,10 @@ os_waitstatus_to_exitcode(PyObject *module, PyObject *const *args, Py_ssize_t na
+     #define OS_SYSTEM_METHODDEF
+ #endif /* !defined(OS_SYSTEM_METHODDEF) */
+ 
++#ifndef OS_UMASK_METHODDEF
++    #define OS_UMASK_METHODDEF
++#endif
++
+ #ifndef OS_UNAME_METHODDEF
+     #define OS_UNAME_METHODDEF
+ #endif /* !defined(OS_UNAME_METHODDEF) */
+diff --git a/Modules/posixmodule.c b/Modules/posixmodule.c
+index 8e6885faa81..876e8f84e0c 100644
+--- a/Modules/posixmodule.c
++++ b/Modules/posixmodule.c
+@@ -4877,7 +4877,7 @@ os_system_impl(PyObject *module, PyObject *command)
+ #endif
+ #endif /* HAVE_SYSTEM */
+ 
+-
++#ifdef HAVE_UMASK
+ /*[clinic input]
+ os.umask
+ 
+@@ -4896,6 +4896,7 @@ os_umask_impl(PyObject *module, int mask)
+         return posix_error();
+     return PyLong_FromLong((long)i);
+ }
++#endif
+ 
+ #ifdef MS_WINDOWS
+ 
+-- 
+2.25.1
+
+
+From dcbff621941d241abd4162827859409058fdbf62 Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Fri, 22 Oct 2021 22:47:11 -0400
+Subject: [PATCH 06/10] modules: configure modules for Switch target
+
+---
+ Modules/Setup | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Modules/Setup b/Modules/Setup
+index 87c6a152f86..b2d860c720f 100644
+--- a/Modules/Setup
++++ b/Modules/Setup
+@@ -103,7 +103,7 @@ PYTHONPATH=$(COREPYTHONPATH)
+ 
+ posix -DPy_BUILD_CORE_BUILTIN -I$(srcdir)/Include/internal posixmodule.c # posix (UNIX) system calls
+ errno errnomodule.c			# posix (UNIX) errno values
+-pwd pwdmodule.c				# this is needed to find out the user's home dir
++#pwd pwdmodule.c			# this is needed to find out the user's home dir
+ 					# if $HOME is not set
+ _sre -DPy_BUILD_CORE_BUILTIN _sre.c	# Fredrik Lundh's new regular expressions
+ _codecs _codecsmodule.c			# access to the builtin codecs and codec registry
+-- 
+2.25.1
+
+
+From 8227116fdc0cadbff5375bb5f99235ec3762b5b7 Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Sat, 23 Oct 2021 02:40:25 -0400
+Subject: [PATCH 07/10] random: urandom implementation for switch
+
+---
+ Python/bootstrap_hash.c | 52 +++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 52 insertions(+)
+
+diff --git a/Python/bootstrap_hash.c b/Python/bootstrap_hash.c
+index e189ce0d901..1a455b48a54 100644
+--- a/Python/bootstrap_hash.c
++++ b/Python/bootstrap_hash.c
+@@ -34,6 +34,11 @@
+ #  define HAVE_GETENTRYPY_GETRANDOM_RUNTIME 1
+ #endif
+ 
++#ifdef __SWITCH__
++#include "switch/types.h"
++#include "switch/services/csrng.h"
++#endif
++
+ 
+ #ifdef Py_DEBUG
+ int _Py_HashSecret_Initialized = 0;
+@@ -41,6 +46,51 @@ int _Py_HashSecret_Initialized = 0;
+ static int _Py_HashSecret_Initialized = 0;
+ #endif
+ 
++#ifdef __SWITCH__
++static Service* g_csrngSrv = NULL;
++
++static int
++switch_urandom_init(int raise)
++{
++    Result rc;
++
++    rc = csrngInitialize();
++    if (R_SUCCEEDED(rc)) {
++        g_csrngSrv = csrngGetServiceSession();
++        return 0;
++    }
++
++    if (raise)
++        PyErr_SetString(PyExc_RuntimeError,
++                        "SWITCH: Failed to get csrng service handle.");
++    else
++        Py_FatalError("SWITCH: Failed to get csrng service handle.");
++    return -1;
++}
++
++static int
++switch_urandom(unsigned char *buffer, Py_ssize_t size, int raise)
++{
++    Result rc;
++
++    if (g_csrngSrv == NULL)
++        switch_urandom_init(raise);
++
++    rc = csrngGetRandomBytes(buffer, size);
++
++    if (R_SUCCEEDED(rc))
++        return 0;
++
++error:
++    if (raise)
++        PyErr_SetString(PyExc_RuntimeError,
++                        "SWITCH: GetRandomBytes failed");
++    else
++        Py_FatalError("SWITCH: GetRandomBytes failed");
++    return -1;
++}
++#endif
++
+ #ifdef MS_WINDOWS
+ static HCRYPTPROV hCryptProv = 0;
+ 
+@@ -515,6 +565,8 @@ pyurandom(void *buffer, Py_ssize_t size, int blocking, int raise)
+ 
+ #ifdef MS_WINDOWS
+     return win32_urandom((unsigned char *)buffer, size, raise);
++#elif defined(__SWITCH__)
++    return switch_urandom(buffer, size, raise);
+ #else
+ 
+ #if defined(PY_GETRANDOM) || defined(PY_GETENTROPY)
+-- 
+2.25.1
+
+
+From a84f4c79ce58439b6aa68491ee9deeaa31baca3b Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Sat, 23 Oct 2021 03:01:23 -0400
+Subject: [PATCH 08/10] pylifecycle: HACK to get output working on Switch
+
+---
+ Python/pylifecycle.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/Python/pylifecycle.c b/Python/pylifecycle.c
+index eeaf20b4617..b86fbc1d9a0 100644
+--- a/Python/pylifecycle.c
++++ b/Python/pylifecycle.c
+@@ -2114,7 +2114,9 @@ is_valid_fd(int fd)
+ 
+    Only use dup() on platforms where dup() is enough to detect invalid FD in
+    corner cases: on Linux and Windows (bpo-32849). */
+-#if defined(__linux__) || defined(MS_WINDOWS)
++#if defined(__SWITCH__)
++    return 1;
++#elif defined(__linux__) || defined(MS_WINDOWS)
+     if (fd < 0) {
+         return 0;
+     }
+-- 
+2.25.1
+
+
+From 2e7d0091aed82bb8bd49d4e1692839adb33d288c Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Sat, 23 Oct 2021 03:26:14 -0400
+Subject: [PATCH 09/10] thread: fix thread ID check
+
+---
+ Python/thread_pthread.h | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/Python/thread_pthread.h b/Python/thread_pthread.h
+index ec7d737518b..2b72345576e 100644
+--- a/Python/thread_pthread.h
++++ b/Python/thread_pthread.h
+@@ -324,7 +324,12 @@ PyThread_get_thread_ident(void)
+     if (!initialized)
+         PyThread_init_thread();
+     threadid = pthread_self();
++
++#ifdef __SWITCH__
++    return (unsigned long) threadid+1;
++#else
+     return (unsigned long) threadid;
++#endif
+ }
+ 
+ #ifdef PY_HAVE_THREAD_NATIVE_ID
+-- 
+2.25.1
+
+
+From a85e620b225a8c2b4d4d1ca4142c6df547cbfff4 Mon Sep 17 00:00:00 2001
+From: Aidan Noll <aidan.noll@gmail.com>
+Date: Mon, 25 Oct 2021 15:42:22 -0400
+Subject: [PATCH 10/10] modules: add more modules for Switch
+
+---
+ Modules/Setup | 44 ++++++++++++++++++++++----------------------
+ 1 file changed, 22 insertions(+), 22 deletions(-)
+
+diff --git a/Modules/Setup b/Modules/Setup
+index b2d860c720f..9cc9826664a 100644
+--- a/Modules/Setup
++++ b/Modules/Setup
+@@ -151,7 +151,7 @@ _symtable symtablemodule.c
+ # modules are to be built as shared libraries (see above for more
+ # detail; also note that *static* or *disabled* cancels this effect):
+ 
+-#*shared*
++#*static*
+ 
+ # GNU readline.  Unlike previous Python incarnations, GNU readline is
+ # now incorporated in an optional module, configured in the Setup file
+@@ -166,26 +166,26 @@ _symtable symtablemodule.c
+ 
+ # Modules that should always be present (non UNIX dependent):
+ 
+-#array -DPy_BUILD_CORE_MODULE arraymodule.c	# array objects
+-#cmath cmathmodule.c _math.c -DPy_BUILD_CORE_MODULE # -lm # complex math library functions
+-#math mathmodule.c _math.c -DPy_BUILD_CORE_MODULE # -lm # math library functions, e.g. sin()
+-#_contextvars _contextvarsmodule.c  # Context Variables
+-#_struct -DPy_BUILD_CORE_MODULE _struct.c	# binary structure packing/unpacking
+-#_weakref _weakref.c	# basic weak reference support
++array -DPy_BUILD_CORE_MODULE arraymodule.c	# array objects
++cmath cmathmodule.c _math.c -DPy_BUILD_CORE_MODULE # -lm # complex math library functions
++math mathmodule.c _math.c -DPy_BUILD_CORE_MODULE # -lm # math library functions, e.g. sin()
++_contextvars _contextvarsmodule.c  # Context Variables
++_struct -DPy_BUILD_CORE_MODULE _struct.c	# binary structure packing/unpacking
++_weakref _weakref.c	# basic weak reference support
+ #_testcapi _testcapimodule.c    # Python C API test module
+ #_testinternalcapi _testinternalcapi.c -I$(srcdir)/Include/internal -DPy_BUILD_CORE_MODULE  # Python internal C API test module
+-#_random _randommodule.c -DPy_BUILD_CORE_MODULE	# Random number generator
++_random _randommodule.c -DPy_BUILD_CORE_MODULE	# Random number generator
+ #_elementtree -I$(srcdir)/Modules/expat -DHAVE_EXPAT_CONFIG_H -DUSE_PYEXPAT_CAPI _elementtree.c	# elementtree accelerator
+-#_pickle -DPy_BUILD_CORE_MODULE _pickle.c	# pickle accelerator
+-#_datetime _datetimemodule.c	# datetime accelerator
+-#_zoneinfo _zoneinfo.c -DPy_BUILD_CORE_MODULE	# zoneinfo accelerator
+-#_bisect _bisectmodule.c	# Bisection algorithms
+-#_heapq _heapqmodule.c -DPy_BUILD_CORE_MODULE	# Heap queue algorithm
+-#_asyncio _asynciomodule.c  # Fast asyncio Future
+-#_json -I$(srcdir)/Include/internal -DPy_BUILD_CORE_BUILTIN _json.c	# _json speedups
+-#_statistics _statisticsmodule.c # statistics accelerator
++_pickle -DPy_BUILD_CORE_MODULE _pickle.c	# pickle accelerator
++_datetime _datetimemodule.c	# datetime accelerator
++_zoneinfo _zoneinfo.c -DPy_BUILD_CORE_MODULE	# zoneinfo accelerator
++_bisect _bisectmodule.c	# Bisection algorithms
++_heapq _heapqmodule.c -DPy_BUILD_CORE_MODULE	# Heap queue algorithm
++_asyncio _asynciomodule.c  # Fast asyncio Future
++_json -I$(srcdir)/Include/internal -DPy_BUILD_CORE_BUILTIN _json.c	# _json speedups
++_statistics _statisticsmodule.c # statistics accelerator
+ 
+-#unicodedata unicodedata.c -DPy_BUILD_CORE_BUILTIN   # static Unicode character database
++unicodedata unicodedata.c -DPy_BUILD_CORE_BUILTIN   # static Unicode character database
+ 
+ 
+ # Modules with some UNIX dependencies -- on by default:
+@@ -254,15 +254,15 @@ _symtable symtablemodule.c
+ # The _md5 module implements the RSA Data Security, Inc. MD5
+ # Message-Digest Algorithm, described in RFC 1321.
+ 
+-#_md5 md5module.c
++_md5 md5module.c
+ 
+ 
+ # The _sha module implements the SHA checksum algorithms.
+ # (NIST's Secure Hash Algorithms.)
+-#_sha1 sha1module.c
+-#_sha256 sha256module.c -DPy_BUILD_CORE_BUILTIN
+-#_sha512 sha512module.c -DPy_BUILD_CORE_BUILTIN
+-#_sha3 _sha3/sha3module.c
++_sha1 sha1module.c
++_sha256 sha256module.c -DPy_BUILD_CORE_BUILTIN
++_sha512 sha512module.c -DPy_BUILD_CORE_BUILTIN
++_sha3 _sha3/sha3module.c
+ 
+ # _blake module
+ #_blake2 _blake2/blake2module.c _blake2/blake2b_impl.c _blake2/blake2s_impl.c
+-- 
+2.25.1
+

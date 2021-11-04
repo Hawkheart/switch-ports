@@ -1,0 +1,56 @@
+# Maintainer: Aidan Noll <aidan.noll@gmail.com>
+
+pkgname=switch-panda3d
+pkgver=1.11.0
+pkgrel=1
+pkgdesc="Panda3D game engine"
+arch=('any')
+license=('BSD')
+options=(!strip libtool staticlibs)
+source=(
+    "panda3d::git+https://github.com/panda3d/panda3d"
+    "panda3d-switch.patch"
+)
+sha512sums=('SKIP' 'SKIP')
+makedepends=('switch-pkg-config' 'dkp-toolchain-vars' 'switch-cmake')
+groups=('switch-portlibs')
+
+prepare() {
+    cd panda3d
+
+    mkdir -p build
+    git am ${srcdir}/panda3d-switch.patch
+}
+
+build() {
+    cd panda3d/build
+
+    source ${DEVKITPRO}/switchvars.sh
+
+    echo ${DEVKITPRO}/portlibs/switch/lib/libpython3.10.a
+
+    aarch64-none-elf-cmake \
+	    -DCMAKE_INSTALL_PREFIX=$PORTLIBS_PREFIX \
+	    -DCMAKE_DL_LIBS='' \
+	    -DHAVE_OPENSSL=OFF \
+	    -DHAVE_GL=OFF \
+	    -DBUILD_SHARED_LIBS=OFF \
+	    -DBUILD_MODELS=OFF \
+	    -DWANT_NATIVE_NET=FALSE \
+	    -DDO_PSTATS=OFF \
+    	    -DBUILD_PANDATOOL=OFF \
+	    -DSWITCH=TRUE \
+	    -DCMAKE_UNITY_BUILD=OFF \
+	    -DPython_EXECUTABLE=/usr/bin/python3.10 \
+	    -DPython_LIBRARY=${DEVKITPRO}/portlibs/switch/lib/libpython3.10.a \
+	    -DPython_INCLUDE_DIR=${DEVKITPRO}/portlibs/switch/include/python3.10 \
+    ..
+
+    make
+}
+
+package() {
+    cd panda3d/build
+    
+    make install DESTDIR="$pkgdir"
+}
